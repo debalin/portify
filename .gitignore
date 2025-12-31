@@ -1,0 +1,16 @@
+# Defaults
+.DS_Store
+.env
+
+# Node
+node_modules/
+dist/
+build/
+.npm/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
