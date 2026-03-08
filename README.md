@@ -6,7 +6,7 @@
 
 > ⚠️ **Note:** Portify is currently a **Work in Progress (WIP)**. The core backend architecture is active, but the frontend UI and additional streaming providers are still being developed.
 
-> ✨ **Built with AI:** This entire application was "vibe coded" from scratch with the help of **Antigravity** and the **Google Gemini** model. 
+> ✨ **Built with AI:** This entire application was "vibe coded" from scratch with the help of **Antigravity** and the **Gemini 3.1 Pro High** model. 
 
 ## 🚀 Current Status
 
