@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package converter.v1;
+
+option go_package = "github.com/debalin/portify/gen/go/converter/v1;converterv1";
+
+// CanonicalTrack represents a single song/track in a universal format.
+message CanonicalTrack {
+  // The title of the track.
+  string title = 1;
+  // The primary artist(s) of the track.
+  string artist = 2;
+  // The album name.
+  string album = 3;
+  // Duration of the track in milliseconds.
+  int64 duration_ms = 4;
+  // International Standard Recording Code (ISRC) - if available.
+  // This is the best way to match songs across platforms.
+  string isrc = 5;
+}
+
+// CanonicalPlaylist represents a playlist in a universal format.
+message CanonicalPlaylist {
+  // Basic metadata
+  string name = 1;
+  string description = 2;
+
+  // The list of tracks in the playlist.
+  repeated CanonicalTrack tracks = 3;
+}

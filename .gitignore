@@ -2,15 +2,19 @@
 .DS_Store
 .env
 
-# Node
 node_modules/
 dist/
 build/
 .npm/
 
-# Python
-__pycache__/
-*.py[cod]
-venv/
-.venv/
-env/
+# Test binaries
+*.exe
+testspotify/testspotify
+testyoutube/testyoutube
+
+# Dependency directories
+vendor/
+
+# Environment files
+.env
+bin/

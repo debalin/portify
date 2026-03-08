@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package converter.v1;
+
+import "converter/v1/model.proto";
+
+option go_package = "github.com/debalin/portify/gen/go/converter/v1;converterv1";
+
+// ConverterService is the main entry point for the frontend.
+service ConverterService {
+  // ListProviders returns a list of supported source and destination providers.
+  rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
+
+  // ConvertPlaylist triggers the conversion process.
+  // Note: In a real app, this might return a job ID (async), but for now we'll do it sync-ish or stream the response.
+  rpc ConvertPlaylist(ConvertPlaylistRequest) returns (ConvertPlaylistResponse);
+}
+
+message ListProvidersRequest {}
+
+message ListProvidersResponse {
+  repeated ProviderInfo sources = 1;
+  repeated ProviderInfo destinations = 2;
+}
+
+message ProviderInfo {
+  string id = 1;   // e.g., "spotify", "youtube"
+  string name = 2; // e.g., "Spotify", "YouTube Music"
+}
+
+message ConvertPlaylistRequest {
+  string source_provider = 1;      // e.g., "spotify"
+  string destination_provider = 2; // e.g., "youtube"
+  
+  // The ID of the playlist on the source platform.
+  string source_playlist_id = 3; 
+
+  // Optional: The authorization tokens for the source and destination (if passed from frontend).
+  // In a production app, these would likely be handled via session cookies.
+  string source_auth_token = 4;
+  string destination_auth_token = 5;
+}
+
+message ConvertPlaylistResponse {
+  bool success = 1;
+  string message = 2;
+  
+  // Link to the newly created playlist.
+  string destination_playlist_url = 3;
+  
+  // Summary of the conversion.
+  int32 tracks_total = 4;
+  int32 tracks_converted = 5;
+  int32 tracks_failed = 6;
+  
+  // List of tracks that couldn't be found/converted.
+  repeated CanonicalTrack failed_tracks = 7;
+}
