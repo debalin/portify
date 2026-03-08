@@ -21,6 +21,28 @@
 * **Frontend:** React / Vite (Coming Soon)
 * **Authentication:** OAuth 2.0 
 
-## 🏃 Getting Started 
+## 🏃 Getting Started & Build Instructions
 
-*(Detailed setup instructions will be published as the project approaches its first alpha release.)*
+### Prerequisites
+- [Go 1.25+](https://go.dev/doc/install)
+- [Buf CLI](https://buf.build/docs/installation) (for compiling Protocol Buffers)
+
+### 1. Generating Protobufs
+We use `buf` to generate Go models and ConnectRPC routing code from our `.proto` definitions.
+```bash
+# Run this from the root of the project every time you change a .proto file
+buf generate
+```
+
+### 2. Building the Project
+Once the generated code is in place, fetch dependencies and verify the build:
+```bash
+go mod tidy
+go build ./...
+```
+
+### 3. Running the Server
+```bash
+go run ./cmd/server
+```
+*(Note: To actually test the adapters, use the isolated `testspotify` and `testyoutube` scripts in the `/cmd` directory, which rely on local `.env` variables).*
