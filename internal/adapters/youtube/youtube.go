@@ -6,9 +6,11 @@ import (
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/domain"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
-	"golang.org/x/oauth2"
+	"os"
 )
 
 // Adapter implements domain.PlaylistSink for YouTube
@@ -22,15 +24,38 @@ func NewAdapter() *Adapter {
 // Info returns basic information about the YouTube provider
 func (a *Adapter) Info() domain.ProviderInfo {
 	return domain.ProviderInfo{
-		ID:   "youtube",
-		Name: "YouTube Music",
+		ID:          "youtube",
+		Name:        "YouTube Music",
+		AuthURLHint: a.GetAuthURL(),
 	}
+}
+
+func getYouTubeOAuthConfig() *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     os.Getenv("YOUTUBE_ID"),
+		ClientSecret: os.Getenv("YOUTUBE_SECRET"),
+		RedirectURL:  "http://localhost:5175/",
+		Scopes:       []string{youtube.YoutubeScope},
+		Endpoint:     google.Endpoint,
+	}
+}
+
+func (a *Adapter) GetAuthURL() string {
+	return getYouTubeOAuthConfig().AuthCodeURL("youtube", oauth2.AccessTypeOffline)
+}
+
+func (a *Adapter) ExchangeAuthCode(ctx context.Context, code string) (string, error) {
+	token, err := getYouTubeOAuthConfig().Exchange(ctx, code)
+	if err != nil {
+		return "", err
+	}
+	return token.AccessToken, nil
 }
 
 // SavePlaylist takes a CanonicalPlaylist and creates it on the user's YouTube account.
 // It uses TrackMatcher to find the corresponding YouTube Video IDs for each track before adding them.
 // Note: This requires an authToken with the "https://www.googleapis.com/auth/youtube" scope.
-func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string) (string, error) {
+func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, destinationPlaylistID string, authToken string) (string, error) {
 	token := &oauth2.Token{
 		AccessToken: authToken,
 		TokenType:   "Bearer",
@@ -43,21 +68,26 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		return "", fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
-	// 1. Create the empty Playlist
-	ytPlaylist := &youtube.Playlist{
-		Snippet: &youtube.PlaylistSnippet{
-			Title:       playlist.Name,
-			Description: playlist.Description + "\n\n(Converted via Playlist Converter)",
-		},
-		Status: &youtube.PlaylistStatus{
-			PrivacyStatus: "private", // Always default to private for safety
-		},
-	}
+	playlistID := destinationPlaylistID
 
-	call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist)
-	createdPlaylist, err := call.Do()
-	if err != nil {
-		return "", fmt.Errorf("failed to create playlist on YouTube: %w", err)
+	// 1. Create the empty Playlist only if no target was explicitly given
+	if playlistID == "" {
+		ytPlaylist := &youtube.Playlist{
+			Snippet: &youtube.PlaylistSnippet{
+				Title:       playlist.Name,
+				Description: playlist.Description + "\n\n(Converted via Playlist Converter)",
+			},
+			Status: &youtube.PlaylistStatus{
+				PrivacyStatus: "private", // Always default to private for safety
+			},
+		}
+
+		call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist)
+		createdPlaylist, err := call.Do()
+		if err != nil {
+			return "", fmt.Errorf("failed to create playlist on YouTube: %w", err)
+		}
+		playlistID = createdPlaylist.Id
 	}
 
 	// 2. Search for tracks and add them
@@ -77,7 +107,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		// Add the found video to the created playlist
 		playlistItem := &youtube.PlaylistItem{
 			Snippet: &youtube.PlaylistItemSnippet{
-				PlaylistId: createdPlaylist.Id,
+				PlaylistId: playlistID,
 				ResourceId: &youtube.ResourceId{
 					Kind:    "youtube#video",
 					VideoId: videoID,
@@ -93,7 +123,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 	}
 
 	// Return the URL to the completed playlist
-	playlistURL := fmt.Sprintf("https://music.youtube.com/playlist?list=%s", createdPlaylist.Id)
+	playlistURL := fmt.Sprintf("https://music.youtube.com/playlist?list=%s", playlistID)
 	return playlistURL, nil
 }
 

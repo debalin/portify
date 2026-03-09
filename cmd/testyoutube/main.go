@@ -79,7 +79,7 @@ func main() {
 	adapter := youtube.NewAdapter()
 	
 	fmt.Printf("\nCreating playlist \"%s\" on YouTube...\n", dummyPlaylist.Name)
-	playlistURL, err := adapter.SavePlaylist(ctx, dummyPlaylist, token.AccessToken)
+	playlistURL, err := adapter.SavePlaylist(ctx, dummyPlaylist, "", token.AccessToken)
 	if err != nil {
 		log.Fatalf("Failed to save playlist to YouTube: %v", err)
 	}

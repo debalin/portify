@@ -8,6 +8,7 @@ import (
 	"github.com/debalin/portify/internal/domain"
 	"github.com/zmb3/spotify/v2"
 	"golang.org/x/oauth2"
+	"os"
 )
 
 // Adapter implements domain.PlaylistSource for Spotify
@@ -21,9 +22,59 @@ func NewAdapter() *Adapter {
 // Info returns basic information about the Spotify provider
 func (a *Adapter) Info() domain.ProviderInfo {
 	return domain.ProviderInfo{
-		ID:   "spotify",
-		Name: "Spotify",
+		ID:          "spotify",
+		Name:        "Spotify",
+		AuthURLHint: a.GetAuthURL(),
 	}
+}
+
+func getSpotifyOAuthConfig() *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     os.Getenv("SPOTIFY_ID"),
+		ClientSecret: os.Getenv("SPOTIFY_SECRET"),
+		RedirectURL:  "http://localhost:5175/",
+		Scopes:       []string{"playlist-read-private", "playlist-read-collaborative", "playlist-modify-private", "playlist-modify-public"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://accounts.spotify.com/authorize",
+			TokenURL: "https://accounts.spotify.com/api/token",
+		},
+	}
+}
+
+func (a *Adapter) GetAuthURL() string {
+	return getSpotifyOAuthConfig().AuthCodeURL("spotify", oauth2.AccessTypeOffline)
+}
+
+func (a *Adapter) ExchangeAuthCode(ctx context.Context, code string) (string, error) {
+	token, err := getSpotifyOAuthConfig().Exchange(ctx, code)
+	if err != nil {
+		return "", err
+	}
+	return token.AccessToken, nil
+}
+
+func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
+	token := &oauth2.Token{
+		AccessToken: authToken,
+		TokenType:   "Bearer",
+	}
+	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
+	client := spotify.New(httpClient)
+
+	page, err := client.CurrentUsersPlaylists(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user playlists: %w", err)
+	}
+
+	var playlists []*converterv1.CanonicalPlaylist
+	for _, sp := range page.Playlists {
+		playlists = append(playlists, &converterv1.CanonicalPlaylist{
+			Id:          string(sp.ID),
+			Name:        sp.Name,
+			Description: sp.Description,
+		})
+	}
+	return playlists, nil
 }
 
 // FetchPlaylist fetches a complete playlist from Spotify and maps it to the generic CanonicalPlaylist

@@ -9,21 +9,27 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"github.com/debalin/portify/gen/go/converter/v1/converterv1connect"
-	"github.com/debalin/portify/internal/adapters/mock"
+	"github.com/debalin/portify/internal/adapters/spotify"
+	"github.com/debalin/portify/internal/adapters/youtube"
 	"github.com/debalin/portify/internal/domain"
 	"github.com/debalin/portify/internal/server"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
 func main() {
+	// Try loading .env from the current running directory 
+	// (usually project root if run via "go run ./cmd/server" from the root)
+	_ = godotenv.Load(".env")
+
 	mux := http.NewServeMux()
 
 	// 0. Initialize the Provider Registry
 	registry := domain.NewProviderRegistry()
 
-	// Register Mock Providers for now
-	registry.RegisterSource(&mock.MockSource{})
-	registry.RegisterDestination(&mock.MockDestination{})
+	// Register Real Providers
+	registry.RegisterSource(spotify.NewAdapter())
+	registry.RegisterDestination(youtube.NewAdapter())
 
 	// 1. Create our server logic
 	converterHelper := server.NewConverterServer(registry)

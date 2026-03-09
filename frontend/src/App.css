@@ -132,6 +132,7 @@
   letter-spacing: 3px;
   color: var(--text-muted);
   font-weight: 600;
+  margin-top: 2rem;
 }
 
 .exchange-icon {
