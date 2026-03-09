@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ConvertPlaylistRequest, ConvertPlaylistResponse, ListProvidersRequest, ListProvidersResponse } from "./service_pb.js";
+import { ConvertPlaylistRequest, ConvertPlaylistResponse, ExchangeAuthCodeRequest, ExchangeAuthCodeResponse, GetAuthURLRequest, GetAuthURLResponse, ListProvidersRequest, ListProvidersResponse, ListUserPlaylistsRequest, ListUserPlaylistsResponse } from "./service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -23,6 +23,39 @@ export const ConverterService = {
       name: "ListProviders",
       I: ListProvidersRequest,
       O: ListProvidersResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * GetAuthURL generates an OAuth URL for the user to log in to a specific provider.
+     *
+     * @generated from rpc converter.v1.ConverterService.GetAuthURL
+     */
+    getAuthURL: {
+      name: "GetAuthURL",
+      I: GetAuthURLRequest,
+      O: GetAuthURLResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * ExchangeAuthCode trades the callback code for an ephemeral Access Token.
+     *
+     * @generated from rpc converter.v1.ConverterService.ExchangeAuthCode
+     */
+    exchangeAuthCode: {
+      name: "ExchangeAuthCode",
+      I: ExchangeAuthCodeRequest,
+      O: ExchangeAuthCodeResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * ListUserPlaylists fetches the user's existing playlists from the provider.
+     *
+     * @generated from rpc converter.v1.ConverterService.ListUserPlaylists
+     */
+    listUserPlaylists: {
+      name: "ListUserPlaylists",
+      I: ListUserPlaylistsRequest,
+      O: ListUserPlaylistsResponse,
       kind: MethodKind.Unary,
     },
     /**

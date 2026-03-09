@@ -89,19 +89,24 @@ export class CanonicalPlaylist extends Message<CanonicalPlaylist> {
   /**
    * Basic metadata
    *
-   * @generated from field: string name = 1;
+   * @generated from field: string id = 1;
+   */
+  id = "";
+
+  /**
+   * @generated from field: string name = 2;
    */
   name = "";
 
   /**
-   * @generated from field: string description = 2;
+   * @generated from field: string description = 3;
    */
   description = "";
 
   /**
    * The list of tracks in the playlist.
    *
-   * @generated from field: repeated converter.v1.CanonicalTrack tracks = 3;
+   * @generated from field: repeated converter.v1.CanonicalTrack tracks = 4;
    */
   tracks: CanonicalTrack[] = [];
 
@@ -113,9 +118,10 @@ export class CanonicalPlaylist extends Message<CanonicalPlaylist> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "converter.v1.CanonicalPlaylist";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "tracks", kind: "message", T: CanonicalTrack, repeated: true },
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "tracks", kind: "message", T: CanonicalTrack, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CanonicalPlaylist {

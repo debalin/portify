@@ -36,6 +36,15 @@ const (
 	// ConverterServiceListProvidersProcedure is the fully-qualified name of the ConverterService's
 	// ListProviders RPC.
 	ConverterServiceListProvidersProcedure = "/converter.v1.ConverterService/ListProviders"
+	// ConverterServiceGetAuthURLProcedure is the fully-qualified name of the ConverterService's
+	// GetAuthURL RPC.
+	ConverterServiceGetAuthURLProcedure = "/converter.v1.ConverterService/GetAuthURL"
+	// ConverterServiceExchangeAuthCodeProcedure is the fully-qualified name of the ConverterService's
+	// ExchangeAuthCode RPC.
+	ConverterServiceExchangeAuthCodeProcedure = "/converter.v1.ConverterService/ExchangeAuthCode"
+	// ConverterServiceListUserPlaylistsProcedure is the fully-qualified name of the ConverterService's
+	// ListUserPlaylists RPC.
+	ConverterServiceListUserPlaylistsProcedure = "/converter.v1.ConverterService/ListUserPlaylists"
 	// ConverterServiceConvertPlaylistProcedure is the fully-qualified name of the ConverterService's
 	// ConvertPlaylist RPC.
 	ConverterServiceConvertPlaylistProcedure = "/converter.v1.ConverterService/ConvertPlaylist"
@@ -45,6 +54,12 @@ const (
 type ConverterServiceClient interface {
 	// ListProviders returns a list of supported source and destination providers.
 	ListProviders(context.Context, *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error)
+	// GetAuthURL generates an OAuth URL for the user to log in to a specific provider.
+	GetAuthURL(context.Context, *connect.Request[v1.GetAuthURLRequest]) (*connect.Response[v1.GetAuthURLResponse], error)
+	// ExchangeAuthCode trades the callback code for an ephemeral Access Token.
+	ExchangeAuthCode(context.Context, *connect.Request[v1.ExchangeAuthCodeRequest]) (*connect.Response[v1.ExchangeAuthCodeResponse], error)
+	// ListUserPlaylists fetches the user's existing playlists from the provider.
+	ListUserPlaylists(context.Context, *connect.Request[v1.ListUserPlaylistsRequest]) (*connect.Response[v1.ListUserPlaylistsResponse], error)
 	// ConvertPlaylist triggers the conversion process.
 	// Note: In a real app, this might return a job ID (async), but for now we'll do it sync-ish or stream the response.
 	ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest]) (*connect.Response[v1.ConvertPlaylistResponse], error)
@@ -67,6 +82,24 @@ func NewConverterServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(converterServiceMethods.ByName("ListProviders")),
 			connect.WithClientOptions(opts...),
 		),
+		getAuthURL: connect.NewClient[v1.GetAuthURLRequest, v1.GetAuthURLResponse](
+			httpClient,
+			baseURL+ConverterServiceGetAuthURLProcedure,
+			connect.WithSchema(converterServiceMethods.ByName("GetAuthURL")),
+			connect.WithClientOptions(opts...),
+		),
+		exchangeAuthCode: connect.NewClient[v1.ExchangeAuthCodeRequest, v1.ExchangeAuthCodeResponse](
+			httpClient,
+			baseURL+ConverterServiceExchangeAuthCodeProcedure,
+			connect.WithSchema(converterServiceMethods.ByName("ExchangeAuthCode")),
+			connect.WithClientOptions(opts...),
+		),
+		listUserPlaylists: connect.NewClient[v1.ListUserPlaylistsRequest, v1.ListUserPlaylistsResponse](
+			httpClient,
+			baseURL+ConverterServiceListUserPlaylistsProcedure,
+			connect.WithSchema(converterServiceMethods.ByName("ListUserPlaylists")),
+			connect.WithClientOptions(opts...),
+		),
 		convertPlaylist: connect.NewClient[v1.ConvertPlaylistRequest, v1.ConvertPlaylistResponse](
 			httpClient,
 			baseURL+ConverterServiceConvertPlaylistProcedure,
@@ -78,13 +111,31 @@ func NewConverterServiceClient(httpClient connect.HTTPClient, baseURL string, op
 
 // converterServiceClient implements ConverterServiceClient.
 type converterServiceClient struct {
-	listProviders   *connect.Client[v1.ListProvidersRequest, v1.ListProvidersResponse]
-	convertPlaylist *connect.Client[v1.ConvertPlaylistRequest, v1.ConvertPlaylistResponse]
+	listProviders     *connect.Client[v1.ListProvidersRequest, v1.ListProvidersResponse]
+	getAuthURL        *connect.Client[v1.GetAuthURLRequest, v1.GetAuthURLResponse]
+	exchangeAuthCode  *connect.Client[v1.ExchangeAuthCodeRequest, v1.ExchangeAuthCodeResponse]
+	listUserPlaylists *connect.Client[v1.ListUserPlaylistsRequest, v1.ListUserPlaylistsResponse]
+	convertPlaylist   *connect.Client[v1.ConvertPlaylistRequest, v1.ConvertPlaylistResponse]
 }
 
 // ListProviders calls converter.v1.ConverterService.ListProviders.
 func (c *converterServiceClient) ListProviders(ctx context.Context, req *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error) {
 	return c.listProviders.CallUnary(ctx, req)
+}
+
+// GetAuthURL calls converter.v1.ConverterService.GetAuthURL.
+func (c *converterServiceClient) GetAuthURL(ctx context.Context, req *connect.Request[v1.GetAuthURLRequest]) (*connect.Response[v1.GetAuthURLResponse], error) {
+	return c.getAuthURL.CallUnary(ctx, req)
+}
+
+// ExchangeAuthCode calls converter.v1.ConverterService.ExchangeAuthCode.
+func (c *converterServiceClient) ExchangeAuthCode(ctx context.Context, req *connect.Request[v1.ExchangeAuthCodeRequest]) (*connect.Response[v1.ExchangeAuthCodeResponse], error) {
+	return c.exchangeAuthCode.CallUnary(ctx, req)
+}
+
+// ListUserPlaylists calls converter.v1.ConverterService.ListUserPlaylists.
+func (c *converterServiceClient) ListUserPlaylists(ctx context.Context, req *connect.Request[v1.ListUserPlaylistsRequest]) (*connect.Response[v1.ListUserPlaylistsResponse], error) {
+	return c.listUserPlaylists.CallUnary(ctx, req)
 }
 
 // ConvertPlaylist calls converter.v1.ConverterService.ConvertPlaylist.
@@ -96,6 +147,12 @@ func (c *converterServiceClient) ConvertPlaylist(ctx context.Context, req *conne
 type ConverterServiceHandler interface {
 	// ListProviders returns a list of supported source and destination providers.
 	ListProviders(context.Context, *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error)
+	// GetAuthURL generates an OAuth URL for the user to log in to a specific provider.
+	GetAuthURL(context.Context, *connect.Request[v1.GetAuthURLRequest]) (*connect.Response[v1.GetAuthURLResponse], error)
+	// ExchangeAuthCode trades the callback code for an ephemeral Access Token.
+	ExchangeAuthCode(context.Context, *connect.Request[v1.ExchangeAuthCodeRequest]) (*connect.Response[v1.ExchangeAuthCodeResponse], error)
+	// ListUserPlaylists fetches the user's existing playlists from the provider.
+	ListUserPlaylists(context.Context, *connect.Request[v1.ListUserPlaylistsRequest]) (*connect.Response[v1.ListUserPlaylistsResponse], error)
 	// ConvertPlaylist triggers the conversion process.
 	// Note: In a real app, this might return a job ID (async), but for now we'll do it sync-ish or stream the response.
 	ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest]) (*connect.Response[v1.ConvertPlaylistResponse], error)
@@ -114,6 +171,24 @@ func NewConverterServiceHandler(svc ConverterServiceHandler, opts ...connect.Han
 		connect.WithSchema(converterServiceMethods.ByName("ListProviders")),
 		connect.WithHandlerOptions(opts...),
 	)
+	converterServiceGetAuthURLHandler := connect.NewUnaryHandler(
+		ConverterServiceGetAuthURLProcedure,
+		svc.GetAuthURL,
+		connect.WithSchema(converterServiceMethods.ByName("GetAuthURL")),
+		connect.WithHandlerOptions(opts...),
+	)
+	converterServiceExchangeAuthCodeHandler := connect.NewUnaryHandler(
+		ConverterServiceExchangeAuthCodeProcedure,
+		svc.ExchangeAuthCode,
+		connect.WithSchema(converterServiceMethods.ByName("ExchangeAuthCode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	converterServiceListUserPlaylistsHandler := connect.NewUnaryHandler(
+		ConverterServiceListUserPlaylistsProcedure,
+		svc.ListUserPlaylists,
+		connect.WithSchema(converterServiceMethods.ByName("ListUserPlaylists")),
+		connect.WithHandlerOptions(opts...),
+	)
 	converterServiceConvertPlaylistHandler := connect.NewUnaryHandler(
 		ConverterServiceConvertPlaylistProcedure,
 		svc.ConvertPlaylist,
@@ -124,6 +199,12 @@ func NewConverterServiceHandler(svc ConverterServiceHandler, opts ...connect.Han
 		switch r.URL.Path {
 		case ConverterServiceListProvidersProcedure:
 			converterServiceListProvidersHandler.ServeHTTP(w, r)
+		case ConverterServiceGetAuthURLProcedure:
+			converterServiceGetAuthURLHandler.ServeHTTP(w, r)
+		case ConverterServiceExchangeAuthCodeProcedure:
+			converterServiceExchangeAuthCodeHandler.ServeHTTP(w, r)
+		case ConverterServiceListUserPlaylistsProcedure:
+			converterServiceListUserPlaylistsHandler.ServeHTTP(w, r)
 		case ConverterServiceConvertPlaylistProcedure:
 			converterServiceConvertPlaylistHandler.ServeHTTP(w, r)
 		default:
@@ -137,6 +218,18 @@ type UnimplementedConverterServiceHandler struct{}
 
 func (UnimplementedConverterServiceHandler) ListProviders(context.Context, *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("converter.v1.ConverterService.ListProviders is not implemented"))
+}
+
+func (UnimplementedConverterServiceHandler) GetAuthURL(context.Context, *connect.Request[v1.GetAuthURLRequest]) (*connect.Response[v1.GetAuthURLResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("converter.v1.ConverterService.GetAuthURL is not implemented"))
+}
+
+func (UnimplementedConverterServiceHandler) ExchangeAuthCode(context.Context, *connect.Request[v1.ExchangeAuthCodeRequest]) (*connect.Response[v1.ExchangeAuthCodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("converter.v1.ConverterService.ExchangeAuthCode is not implemented"))
+}
+
+func (UnimplementedConverterServiceHandler) ListUserPlaylists(context.Context, *connect.Request[v1.ListUserPlaylistsRequest]) (*connect.Response[v1.ListUserPlaylistsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("converter.v1.ConverterService.ListUserPlaylists is not implemented"))
 }
 
 func (UnimplementedConverterServiceHandler) ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest]) (*connect.Response[v1.ConvertPlaylistResponse], error) {

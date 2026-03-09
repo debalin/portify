@@ -108,10 +108,11 @@ func (x *CanonicalTrack) GetIsrc() string {
 type CanonicalPlaylist struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Basic metadata
-	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Id          string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name        string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// The list of tracks in the playlist.
-	Tracks        []*CanonicalTrack `protobuf:"bytes,3,rep,name=tracks,proto3" json:"tracks,omitempty"`
+	Tracks        []*CanonicalTrack `protobuf:"bytes,4,rep,name=tracks,proto3" json:"tracks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -146,6 +147,13 @@ func (*CanonicalPlaylist) Descriptor() ([]byte, []int) {
 	return file_converter_v1_model_proto_rawDescGZIP(), []int{1}
 }
 
+func (x *CanonicalPlaylist) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 func (x *CanonicalPlaylist) GetName() string {
 	if x != nil {
 		return x.Name
@@ -178,11 +186,12 @@ const file_converter_v1_model_proto_rawDesc = "" +
 	"\x05album\x18\x03 \x01(\tR\x05album\x12\x1f\n" +
 	"\vduration_ms\x18\x04 \x01(\x03R\n" +
 	"durationMs\x12\x12\n" +
-	"\x04isrc\x18\x05 \x01(\tR\x04isrc\"\x7f\n" +
-	"\x11CanonicalPlaylist\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\x124\n" +
-	"\x06tracks\x18\x03 \x03(\v2\x1c.converter.v1.CanonicalTrackR\x06tracksB<Z:github.com/debalin/portify/gen/go/converter/v1;converterv1b\x06proto3"
+	"\x04isrc\x18\x05 \x01(\tR\x04isrc\"\x8f\x01\n" +
+	"\x11CanonicalPlaylist\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x124\n" +
+	"\x06tracks\x18\x04 \x03(\v2\x1c.converter.v1.CanonicalTrackR\x06tracksB<Z:github.com/debalin/portify/gen/go/converter/v1;converterv1b\x06proto3"
 
 var (
 	file_converter_v1_model_proto_rawDescOnce sync.Once

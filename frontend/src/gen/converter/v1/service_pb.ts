@@ -5,7 +5,7 @@
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
-import { CanonicalTrack } from "./model_pb.js";
+import { CanonicalPlaylist, CanonicalTrack } from "./model_pb.js";
 
 /**
  * @generated from message converter.v1.ListProvidersRequest
@@ -99,6 +99,13 @@ export class ProviderInfo extends Message<ProviderInfo> {
    */
   name = "";
 
+  /**
+   * optional helper to tell frontend where to redirect
+   *
+   * @generated from field: string auth_url_hint = 3;
+   */
+  authUrlHint = "";
+
   constructor(data?: PartialMessage<ProviderInfo>) {
     super();
     proto3.util.initPartial(data, this);
@@ -109,6 +116,7 @@ export class ProviderInfo extends Message<ProviderInfo> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "auth_url_hint", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ProviderInfo {
@@ -125,6 +133,262 @@ export class ProviderInfo extends Message<ProviderInfo> {
 
   static equals(a: ProviderInfo | PlainMessage<ProviderInfo> | undefined, b: ProviderInfo | PlainMessage<ProviderInfo> | undefined): boolean {
     return proto3.util.equals(ProviderInfo, a, b);
+  }
+}
+
+/**
+ * @generated from message converter.v1.GetAuthURLRequest
+ */
+export class GetAuthURLRequest extends Message<GetAuthURLRequest> {
+  /**
+   * e.g., "spotify" or "youtube"
+   *
+   * @generated from field: string provider_id = 1;
+   */
+  providerId = "";
+
+  constructor(data?: PartialMessage<GetAuthURLRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "converter.v1.GetAuthURLRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "provider_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetAuthURLRequest {
+    return new GetAuthURLRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetAuthURLRequest {
+    return new GetAuthURLRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetAuthURLRequest {
+    return new GetAuthURLRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetAuthURLRequest | PlainMessage<GetAuthURLRequest> | undefined, b: GetAuthURLRequest | PlainMessage<GetAuthURLRequest> | undefined): boolean {
+    return proto3.util.equals(GetAuthURLRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message converter.v1.GetAuthURLResponse
+ */
+export class GetAuthURLResponse extends Message<GetAuthURLResponse> {
+  /**
+   * @generated from field: string auth_url = 1;
+   */
+  authUrl = "";
+
+  constructor(data?: PartialMessage<GetAuthURLResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "converter.v1.GetAuthURLResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "auth_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetAuthURLResponse {
+    return new GetAuthURLResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetAuthURLResponse {
+    return new GetAuthURLResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetAuthURLResponse {
+    return new GetAuthURLResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetAuthURLResponse | PlainMessage<GetAuthURLResponse> | undefined, b: GetAuthURLResponse | PlainMessage<GetAuthURLResponse> | undefined): boolean {
+    return proto3.util.equals(GetAuthURLResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message converter.v1.ExchangeAuthCodeRequest
+ */
+export class ExchangeAuthCodeRequest extends Message<ExchangeAuthCodeRequest> {
+  /**
+   * e.g., "spotify" or "youtube"
+   *
+   * @generated from field: string provider_id = 1;
+   */
+  providerId = "";
+
+  /**
+   * The OAuth code returned in the callback URL
+   *
+   * @generated from field: string code = 2;
+   */
+  code = "";
+
+  constructor(data?: PartialMessage<ExchangeAuthCodeRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "converter.v1.ExchangeAuthCodeRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "provider_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ExchangeAuthCodeRequest {
+    return new ExchangeAuthCodeRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ExchangeAuthCodeRequest {
+    return new ExchangeAuthCodeRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ExchangeAuthCodeRequest {
+    return new ExchangeAuthCodeRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ExchangeAuthCodeRequest | PlainMessage<ExchangeAuthCodeRequest> | undefined, b: ExchangeAuthCodeRequest | PlainMessage<ExchangeAuthCodeRequest> | undefined): boolean {
+    return proto3.util.equals(ExchangeAuthCodeRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message converter.v1.ExchangeAuthCodeResponse
+ */
+export class ExchangeAuthCodeResponse extends Message<ExchangeAuthCodeResponse> {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success = false;
+
+  /**
+   * Ephemeral token to be held by the frontend
+   *
+   * @generated from field: string access_token = 2;
+   */
+  accessToken = "";
+
+  /**
+   * @generated from field: string error_message = 3;
+   */
+  errorMessage = "";
+
+  constructor(data?: PartialMessage<ExchangeAuthCodeResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "converter.v1.ExchangeAuthCodeResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "access_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "error_message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ExchangeAuthCodeResponse {
+    return new ExchangeAuthCodeResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ExchangeAuthCodeResponse {
+    return new ExchangeAuthCodeResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ExchangeAuthCodeResponse {
+    return new ExchangeAuthCodeResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ExchangeAuthCodeResponse | PlainMessage<ExchangeAuthCodeResponse> | undefined, b: ExchangeAuthCodeResponse | PlainMessage<ExchangeAuthCodeResponse> | undefined): boolean {
+    return proto3.util.equals(ExchangeAuthCodeResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message converter.v1.ListUserPlaylistsRequest
+ */
+export class ListUserPlaylistsRequest extends Message<ListUserPlaylistsRequest> {
+  /**
+   * @generated from field: string provider_id = 1;
+   */
+  providerId = "";
+
+  /**
+   * Token retrieved from ExchangeAuthCode
+   *
+   * @generated from field: string access_token = 2;
+   */
+  accessToken = "";
+
+  constructor(data?: PartialMessage<ListUserPlaylistsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "converter.v1.ListUserPlaylistsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "provider_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "access_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListUserPlaylistsRequest {
+    return new ListUserPlaylistsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListUserPlaylistsRequest {
+    return new ListUserPlaylistsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListUserPlaylistsRequest {
+    return new ListUserPlaylistsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListUserPlaylistsRequest | PlainMessage<ListUserPlaylistsRequest> | undefined, b: ListUserPlaylistsRequest | PlainMessage<ListUserPlaylistsRequest> | undefined): boolean {
+    return proto3.util.equals(ListUserPlaylistsRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message converter.v1.ListUserPlaylistsResponse
+ */
+export class ListUserPlaylistsResponse extends Message<ListUserPlaylistsResponse> {
+  /**
+   * @generated from field: repeated converter.v1.CanonicalPlaylist playlists = 1;
+   */
+  playlists: CanonicalPlaylist[] = [];
+
+  constructor(data?: PartialMessage<ListUserPlaylistsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "converter.v1.ListUserPlaylistsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "playlists", kind: "message", T: CanonicalPlaylist, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListUserPlaylistsResponse {
+    return new ListUserPlaylistsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListUserPlaylistsResponse {
+    return new ListUserPlaylistsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListUserPlaylistsResponse {
+    return new ListUserPlaylistsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListUserPlaylistsResponse | PlainMessage<ListUserPlaylistsResponse> | undefined, b: ListUserPlaylistsResponse | PlainMessage<ListUserPlaylistsResponse> | undefined): boolean {
+    return proto3.util.equals(ListUserPlaylistsResponse, a, b);
   }
 }
 
@@ -154,15 +418,21 @@ export class ConvertPlaylistRequest extends Message<ConvertPlaylistRequest> {
   sourcePlaylistId = "";
 
   /**
-   * Optional: The authorization tokens for the source and destination (if passed from frontend).
-   * In a production app, these would likely be handled via session cookies.
+   * Optional: If they picked an existing destination playlist, we just append to it
    *
-   * @generated from field: string source_auth_token = 4;
+   * @generated from field: string destination_playlist_id = 4;
+   */
+  destinationPlaylistId = "";
+
+  /**
+   * The authorization tokens for the source and destination (if passed from frontend).
+   *
+   * @generated from field: string source_auth_token = 5;
    */
   sourceAuthToken = "";
 
   /**
-   * @generated from field: string destination_auth_token = 5;
+   * @generated from field: string destination_auth_token = 6;
    */
   destinationAuthToken = "";
 
@@ -177,8 +447,9 @@ export class ConvertPlaylistRequest extends Message<ConvertPlaylistRequest> {
     { no: 1, name: "source_provider", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "destination_provider", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "source_playlist_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 4, name: "source_auth_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 5, name: "destination_auth_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "destination_playlist_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "source_auth_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "destination_auth_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ConvertPlaylistRequest {

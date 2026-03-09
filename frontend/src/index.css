@@ -61,3 +61,16 @@ button {
 .flex-center { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
 .spinner { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Login and Picker UI */
+.login-btn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.75rem; background: rgba(29, 185, 84, 0.2); border: 1px solid rgba(29, 185, 84, 0.4); color: white; border-radius: 8px; font-family: inherit; font-size: 1.05rem; font-weight: 500; transition: all 0.3s ease; margin-top: 1rem; }
+.login-btn:hover { background: rgba(29, 185, 84, 0.3); box-shadow: 0 0 15px rgba(29, 185, 84, 0.2); transform: translateY(-1px); }
+.login-btn.youtube-login { background: rgba(255, 0, 0, 0.2); border-color: rgba(255, 0, 0, 0.4); }
+.login-btn.youtube-login:hover { background: rgba(255, 0, 0, 0.3); box-shadow: 0 0 15px rgba(255, 0, 0, 0.2); }
+.login-icon { opacity: 0.9; }
+
+.playlist-picker { margin-top: 1rem; width: 100%; animation: scaleIn 0.3s ease-out; }
+.provider-select.inner { margin-bottom: 0; background: rgba(15, 23, 42, 0.6); border-color: var(--accent-primary); font-size: 0.95rem; }
+
+.logged-in-badge { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px dashed rgba(255, 255, 255, 0.2); color: var(--text-muted); border-radius: 8px; font-size: 1.05rem; font-weight: 500; margin-top: 1rem; animation: scaleIn 0.3s ease-out; }
+.success-icon { color: var(--spotify-color); }

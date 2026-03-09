@@ -8,20 +8,26 @@ import (
 
 // ProviderInfo contains basic information about a provider
 type ProviderInfo struct {
-	ID   string
-	Name string
+	ID          string
+	Name        string
+	AuthURLHint string
 }
 
 // PlaylistSource defines the interface for fetching playlists from a source platform (e.g., Spotify)
 type PlaylistSource interface {
 	Info() ProviderInfo
+	GetAuthURL() string
+	ExchangeAuthCode(ctx context.Context, code string) (string, error)
+	ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error)
 	FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error)
 }
 
 // PlaylistSink defines the interface for creating/saving playlists to a destination platform (e.g., YouTube Music)
 type PlaylistSink interface {
 	Info() ProviderInfo
-	SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string) (string, error) // Returns destination URL
+	GetAuthURL() string
+	ExchangeAuthCode(ctx context.Context, code string) (string, error)
+	SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string) (string, error) // Returns destination URL
 }
 
 // TrackMatcher defines the interface for matching a canonical track on a specific platform

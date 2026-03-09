@@ -22,9 +22,10 @@ message CanonicalTrack {
 // CanonicalPlaylist represents a playlist in a universal format.
 message CanonicalPlaylist {
   // Basic metadata
-  string name = 1;
-  string description = 2;
+  string id = 1;
+  string name = 2;
+  string description = 3;
 
   // The list of tracks in the playlist.
-  repeated CanonicalTrack tracks = 3;
+  repeated CanonicalTrack tracks = 4;
 }
