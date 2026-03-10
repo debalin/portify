@@ -20,9 +20,8 @@ service ConverterService {
   // ListUserPlaylists fetches the user's existing playlists from the provider.
   rpc ListUserPlaylists(ListUserPlaylistsRequest) returns (ListUserPlaylistsResponse);
 
-  // ConvertPlaylist triggers the conversion process.
-  // Note: In a real app, this might return a job ID (async), but for now we'll do it sync-ish or stream the response.
-  rpc ConvertPlaylist(ConvertPlaylistRequest) returns (ConvertPlaylistResponse);
+  // ConvertPlaylist triggers the conversion process and streams progress back.
+  rpc ConvertPlaylist(ConvertPlaylistRequest) returns (stream ConvertPlaylistResponse);
 }
 
 message ListProvidersRequest {}
@@ -82,7 +81,15 @@ message ConvertPlaylistRequest {
 }
 
 message ConvertPlaylistResponse {
-  bool success = 1;
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_FETCHING = 1;
+    STATUS_CONVERTING = 2;
+    STATUS_DONE = 3;
+    STATUS_ERROR = 4;
+  }
+
+  Status status = 1;
   string message = 2;
   
   // Link to the newly created playlist.

@@ -59,8 +59,7 @@ export const ConverterService = {
       kind: MethodKind.Unary,
     },
     /**
-     * ConvertPlaylist triggers the conversion process.
-     * Note: In a real app, this might return a job ID (async), but for now we'll do it sync-ish or stream the response.
+     * ConvertPlaylist triggers the conversion process and streams progress back.
      *
      * @generated from rpc converter.v1.ConverterService.ConvertPlaylist
      */
@@ -68,7 +67,7 @@ export const ConverterService = {
       name: "ConvertPlaylist",
       I: ConvertPlaylistRequest,
       O: ConvertPlaylistResponse,
-      kind: MethodKind.Unary,
+      kind: MethodKind.ServerStreaming,
     },
   }
 } as const;

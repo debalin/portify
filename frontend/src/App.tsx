@@ -14,8 +14,20 @@ function App() {
   const [sourcePlaylistId, setSourcePlaylistId] = useState('')
   const [sourcePlaylists, setSourcePlaylists] = useState<CanonicalPlaylist[]>([])
   
-  // Auth state: providerId -> accessToken
-  const [tokens, setTokens] = useState<Record<string, string>>({})
+  // Auth state: providerId -> accessToken (Persisted in sessionStorage to survive OAuth redirects)
+  const [tokens, setTokensState] = useState<Record<string, string>>(() => {
+    const saved = sessionStorage.getItem('portifyAuthTokens')
+    return saved ? JSON.parse(saved) : {}
+  })
+
+  // Wrapper for setTokens to automatically save to sessionStorage
+  const setTokens = (value: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
+    setTokensState(prev => {
+      const next = typeof value === 'function' ? value(prev) : value
+      sessionStorage.setItem('portifyAuthTokens', JSON.stringify(next))
+      return next
+    })
+  }
   
   const [isConverting, setIsConverting] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
@@ -43,6 +55,10 @@ function App() {
       const state = params.get('state') // We will pass providerId as state
 
       if (code && state) {
+        // Synchronously remove the code from the URL so React Strict Mode (which double-fires useEffects)
+        // doesn't try to exchange the same code twice.
+        window.history.replaceState({}, document.title, window.location.pathname)
+        
         setIsAuthLoading(true)
         try {
           const res = await apiClient.exchangeAuthCode({
@@ -51,8 +67,6 @@ function App() {
           })
           if (res.success) {
             setTokens(prev => ({ ...prev, [state]: res.accessToken }))
-            // Clean up the URL
-            window.history.replaceState({}, document.title, window.location.pathname)
           } else {
             console.error("Auth failed:", res.errorMessage)
             alert("Authentication failed: " + res.errorMessage)
@@ -107,6 +121,8 @@ function App() {
     }
   }
 
+  const [progress, setProgress] = useState<{status: number, message: string, converted: number, total: number} | null>(null)
+
   const handleConvert = async () => {
     if (!sourcePlaylistId) {
       alert("Please enter a playlist ID")
@@ -115,9 +131,10 @@ function App() {
 
     setIsConverting(true)
     setResult(null)
+    setProgress(null)
     
     try {
-      const response = await apiClient.convertPlaylist({
+      const stream = apiClient.convertPlaylist({
         sourceProvider: selectedSource,
         destinationProvider: selectedDest,
         sourcePlaylistId: sourcePlaylistId,
@@ -125,11 +142,32 @@ function App() {
         destinationAuthToken: tokens[selectedDest]
       })
       
-      setResult({
-        success: response.success,
-        message: response.message,
-        url: response.destinationPlaylistUrl
-      })
+      for await (const res of stream) {
+        setProgress({
+          status: res.status,
+          message: res.message,
+          converted: res.tracksConverted,
+          total: res.tracksTotal
+        })
+        
+        // STATUS_DONE = 3
+        if (res.status === 3) {
+           setResult({
+             success: true,
+             message: res.message,
+             url: res.destinationPlaylistUrl
+           })
+        }
+        
+        // STATUS_ERROR = 4
+        if (res.status === 4) {
+           setResult({
+             success: false,
+             message: res.message
+           })
+        }
+      }
+      
     } catch (err: any) {
       setResult({
         success: false,
@@ -209,11 +247,33 @@ function App() {
         </div>
 
 
+        {progress && progress.status > 0 && progress.status < 3 && (
+          <div className="progress-container">
+            <div className="progress-header">
+              <span className="progress-status">{progress.message}</span>
+              {progress.total > 0 && (
+                <span className="progress-count">{progress.converted} / {progress.total}</span>
+              )}
+            </div>
+            {progress.total > 0 && (
+              <div className="progress-bar-bg">
+                <div 
+                  className="progress-bar-fill" 
+                  style={{ width: `${Math.round((progress.converted / progress.total) * 100)}%` }}
+                ></div>
+              </div>
+            )}
+          </div>
+        )}
+
         {result && (
           <div className={`result-card ${result.success ? 'success' : 'error'}`}>
             {result.success ? <CheckCircle className="result-icon" /> : <AlertCircle className="result-icon error" />}
             <div>
               <p className="result-msg">{result.message}</p>
+              {result.success && progress && progress.total > 0 && (
+                  <p className="result-stats">Converted {progress.converted} of {progress.total} tracks.</p>
+              )}
               {result.url && (
                 <a href={result.url} target="_blank" rel="noreferrer" className="result-link">
                   Open New Playlist &rarr;

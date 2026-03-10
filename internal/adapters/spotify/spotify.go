@@ -29,10 +29,15 @@ func (a *Adapter) Info() domain.ProviderInfo {
 }
 
 func getSpotifyOAuthConfig() *oauth2.Config {
+	redirectURL := os.Getenv("FRONTEND_URL")
+	if redirectURL == "" {
+		redirectURL = "http://localhost:5175/"
+	}
+
 	return &oauth2.Config{
 		ClientID:     os.Getenv("SPOTIFY_ID"),
 		ClientSecret: os.Getenv("SPOTIFY_SECRET"),
-		RedirectURL:  "http://localhost:5175/",
+		RedirectURL:  redirectURL,
 		Scopes:       []string{"playlist-read-private", "playlist-read-collaborative", "playlist-modify-private", "playlist-modify-public"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "https://accounts.spotify.com/authorize",
@@ -140,8 +145,8 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 			canonical.Tracks = append(canonical.Tracks, canonicalTrack)
 		}
 
-		// If we fetched less than limit or there's no next page, we are done
-		if len(trackPage.Items) < limit || trackPage.Next == "" {
+		// If we fetched the total number of available tracks, break the pagination loop
+		if len(canonical.Tracks) >= int(trackPage.Total) || len(trackPage.Items) == 0 {
 			break
 		}
 

@@ -27,24 +27,45 @@
 
 ### Prerequisites
 - [Go 1.25+](https://go.dev/doc/install)
+- [Node.js (v18+)](https://nodejs.org/) & `npm`
 - [Buf CLI](https://buf.build/docs/installation) (for compiling Protocol Buffers)
 
 ### 1. Generating Protobufs
-We use `buf` to generate Go models and ConnectRPC routing code from our `.proto` definitions.
+We use `buf` to generate Go models and TypeScript ConnectRPC client code from our `.proto` definitions.
 ```bash
 # Run this from the root of the project every time you change a .proto file
 buf generate
 ```
 
-### 2. Building the Project
-Once the generated code is in place, fetch dependencies and verify the build:
+### 2. Starting the Backend (Go)
+Fetch dependencies and start the ConnectRPC Go server (runs on `localhost:8080`).
 ```bash
 go mod tidy
-go build ./...
-```
-
-### 3. Running the Server
-```bash
 go run ./cmd/server
 ```
-*(Note: To actually test the adapters, use the isolated `testspotify` and `testyoutube` scripts in the `/cmd` directory, which rely on local `.env` variables).*
+
+### 3. Starting the Frontend (React + Vite)
+In a new terminal window, start the frontend development server:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+The React app will be available at `http://localhost:5173`. It acts as a proxy to tunnel `/converter.v1.ConverterService/*` requests to the Go backend.
+
+### 4. Running Tests (E2E Validation)
+Run all tests, including our E2E flow tests utilizing Testcontainers.
+```bash
+go test ./... -v
+```
+
+### 5. Pushing Changes
+Ensure you generate protobufs cleanly, format your code, and run tests before pushing:
+```bash
+buf format -w
+go fmt ./...
+go test ./...
+git add .
+git commit -m "Your descriptive commit message"
+git push
+```

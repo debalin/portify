@@ -60,9 +60,8 @@ type ConverterServiceClient interface {
 	ExchangeAuthCode(context.Context, *connect.Request[v1.ExchangeAuthCodeRequest]) (*connect.Response[v1.ExchangeAuthCodeResponse], error)
 	// ListUserPlaylists fetches the user's existing playlists from the provider.
 	ListUserPlaylists(context.Context, *connect.Request[v1.ListUserPlaylistsRequest]) (*connect.Response[v1.ListUserPlaylistsResponse], error)
-	// ConvertPlaylist triggers the conversion process.
-	// Note: In a real app, this might return a job ID (async), but for now we'll do it sync-ish or stream the response.
-	ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest]) (*connect.Response[v1.ConvertPlaylistResponse], error)
+	// ConvertPlaylist triggers the conversion process and streams progress back.
+	ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest]) (*connect.ServerStreamForClient[v1.ConvertPlaylistResponse], error)
 }
 
 // NewConverterServiceClient constructs a client for the converter.v1.ConverterService service. By
@@ -139,8 +138,8 @@ func (c *converterServiceClient) ListUserPlaylists(ctx context.Context, req *con
 }
 
 // ConvertPlaylist calls converter.v1.ConverterService.ConvertPlaylist.
-func (c *converterServiceClient) ConvertPlaylist(ctx context.Context, req *connect.Request[v1.ConvertPlaylistRequest]) (*connect.Response[v1.ConvertPlaylistResponse], error) {
-	return c.convertPlaylist.CallUnary(ctx, req)
+func (c *converterServiceClient) ConvertPlaylist(ctx context.Context, req *connect.Request[v1.ConvertPlaylistRequest]) (*connect.ServerStreamForClient[v1.ConvertPlaylistResponse], error) {
+	return c.convertPlaylist.CallServerStream(ctx, req)
 }
 
 // ConverterServiceHandler is an implementation of the converter.v1.ConverterService service.
@@ -153,9 +152,8 @@ type ConverterServiceHandler interface {
 	ExchangeAuthCode(context.Context, *connect.Request[v1.ExchangeAuthCodeRequest]) (*connect.Response[v1.ExchangeAuthCodeResponse], error)
 	// ListUserPlaylists fetches the user's existing playlists from the provider.
 	ListUserPlaylists(context.Context, *connect.Request[v1.ListUserPlaylistsRequest]) (*connect.Response[v1.ListUserPlaylistsResponse], error)
-	// ConvertPlaylist triggers the conversion process.
-	// Note: In a real app, this might return a job ID (async), but for now we'll do it sync-ish or stream the response.
-	ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest]) (*connect.Response[v1.ConvertPlaylistResponse], error)
+	// ConvertPlaylist triggers the conversion process and streams progress back.
+	ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest], *connect.ServerStream[v1.ConvertPlaylistResponse]) error
 }
 
 // NewConverterServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -189,7 +187,7 @@ func NewConverterServiceHandler(svc ConverterServiceHandler, opts ...connect.Han
 		connect.WithSchema(converterServiceMethods.ByName("ListUserPlaylists")),
 		connect.WithHandlerOptions(opts...),
 	)
-	converterServiceConvertPlaylistHandler := connect.NewUnaryHandler(
+	converterServiceConvertPlaylistHandler := connect.NewServerStreamHandler(
 		ConverterServiceConvertPlaylistProcedure,
 		svc.ConvertPlaylist,
 		connect.WithSchema(converterServiceMethods.ByName("ConvertPlaylist")),
@@ -232,6 +230,6 @@ func (UnimplementedConverterServiceHandler) ListUserPlaylists(context.Context, *
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("converter.v1.ConverterService.ListUserPlaylists is not implemented"))
 }
 
-func (UnimplementedConverterServiceHandler) ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest]) (*connect.Response[v1.ConvertPlaylistResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("converter.v1.ConverterService.ConvertPlaylist is not implemented"))
+func (UnimplementedConverterServiceHandler) ConvertPlaylist(context.Context, *connect.Request[v1.ConvertPlaylistRequest], *connect.ServerStream[v1.ConvertPlaylistResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("converter.v1.ConverterService.ConvertPlaylist is not implemented"))
 }

@@ -31,10 +31,15 @@ func (a *Adapter) Info() domain.ProviderInfo {
 }
 
 func getYouTubeOAuthConfig() *oauth2.Config {
+	redirectURL := os.Getenv("FRONTEND_URL")
+	if redirectURL == "" {
+		redirectURL = "http://localhost:5175/"
+	}
+
 	return &oauth2.Config{
 		ClientID:     os.Getenv("YOUTUBE_ID"),
 		ClientSecret: os.Getenv("YOUTUBE_SECRET"),
-		RedirectURL:  "http://localhost:5175/",
+		RedirectURL:  redirectURL,
 		Scopes:       []string{youtube.YoutubeScope},
 		Endpoint:     google.Endpoint,
 	}
@@ -55,7 +60,7 @@ func (a *Adapter) ExchangeAuthCode(ctx context.Context, code string) (string, er
 // SavePlaylist takes a CanonicalPlaylist and creates it on the user's YouTube account.
 // It uses TrackMatcher to find the corresponding YouTube Video IDs for each track before adding them.
 // Note: This requires an authToken with the "https://www.googleapis.com/auth/youtube" scope.
-func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, destinationPlaylistID string, authToken string) (string, error) {
+func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, error) {
 	token := &oauth2.Token{
 		AccessToken: authToken,
 		TokenType:   "Bearer",
@@ -90,17 +95,28 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		playlistID = createdPlaylist.Id
 	}
 
+	converted := 0
+	failed := 0
+
 	// 2. Search for tracks and add them
 	for _, track := range playlist.Tracks {
 		// Attempt to match the track directly inside this Adapter since the logic is highly YouTube-specific.
 		videoID, err := a.matchTrack(service, track)
 		if err != nil {
 			fmt.Printf("Warning: Failed to match track %s by %s: %v\n", track.Title, track.Artist, err)
+			failed++
+			if onProgress != nil {
+				onProgress(converted, failed)
+			}
 			continue // Skip tracks we can't find rather than failing the whole playlist
 		}
 
 		if videoID == "" {
 			fmt.Printf("Warning: Could not find any suitable match for %s by %s\n", track.Title, track.Artist)
+			failed++
+			if onProgress != nil {
+				onProgress(converted, failed)
+			}
 			continue
 		}
 
@@ -119,6 +135,16 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		_, err = insertCall.Do()
 		if err != nil {
 			fmt.Printf("Warning: Failed to insert video %s into playlist: %v\n", videoID, err)
+			failed++
+			if onProgress != nil {
+				onProgress(converted, failed)
+			}
+			continue
+		}
+
+		converted++
+		if onProgress != nil {
+			onProgress(converted, failed)
 		}
 	}
 

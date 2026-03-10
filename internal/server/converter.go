@@ -144,19 +144,83 @@ func (s *ConverterServer) ListUserPlaylists(
 	}), nil
 }
 
-// ConvertPlaylist triggers the conversion process.
+// ConvertPlaylist triggers the conversion process and streams progress back.
 func (s *ConverterServer) ConvertPlaylist(
 	ctx context.Context,
 	req *connect.Request[converterv1.ConvertPlaylistRequest],
-) (*connect.Response[converterv1.ConvertPlaylistResponse], error) {
+	stream *connect.ServerStream[converterv1.ConvertPlaylistResponse],
+) error {
 	log.Printf("Request received: ConvertPlaylist from %s to %s", req.Msg.SourceProvider, req.Msg.DestinationProvider)
 
-	// Mock response for now
-	return connect.NewResponse(&converterv1.ConvertPlaylistResponse{
-		Success:         true,
-		Message:         fmt.Sprintf("Mock conversion from %s to %s completed", req.Msg.SourceProvider, req.Msg.DestinationProvider),
-		TracksTotal:     10,
-		TracksConverted: 10,
-		TracksFailed:    0,
-	}), nil
+	source, ok := s.registry.GetSource(req.Msg.SourceProvider)
+	if !ok {
+		return connect.NewError(connect.CodeNotFound, fmt.Errorf("source provider %s not found", req.Msg.SourceProvider))
+	}
+
+	dest, ok := s.registry.GetDestination(req.Msg.DestinationProvider)
+	if !ok {
+		return connect.NewError(connect.CodeNotFound, fmt.Errorf("destination provider %s not found", req.Msg.DestinationProvider))
+	}
+
+	// Send initial "FETCHING" status
+	stream.Send(&converterv1.ConvertPlaylistResponse{
+		Status:  converterv1.ConvertPlaylistResponse_STATUS_FETCHING,
+		Message: "Fetching playlist data from source...",
+	})
+
+	// 1. Fetch playlist from source
+	canonicalPlaylist, err := source.FetchPlaylist(ctx, req.Msg.SourcePlaylistId, req.Msg.SourceAuthToken)
+	if err != nil {
+		stream.Send(&converterv1.ConvertPlaylistResponse{
+			Status:  converterv1.ConvertPlaylistResponse_STATUS_ERROR,
+			Message: fmt.Sprintf("Failed to fetch source playlist: %v", err),
+		})
+		return nil
+	}
+
+	totalTracks := int32(len(canonicalPlaylist.Tracks))
+
+	// Send "CONVERTING" status start
+	stream.Send(&converterv1.ConvertPlaylistResponse{
+		Status:      converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
+		Message:     fmt.Sprintf("Starting conversion for '%s'...", canonicalPlaylist.Name),
+		TracksTotal: totalTracks,
+	})
+
+	// 2. Save playlist to destination with progress callback
+	playlistURL, err := dest.SavePlaylist(
+		ctx,
+		canonicalPlaylist,
+		req.Msg.DestinationAuthToken,
+		"",
+		func(converted, failed int) {
+			stream.Send(&converterv1.ConvertPlaylistResponse{
+				Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
+				Message:         fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed, totalTracks),
+				TracksTotal:     totalTracks,
+				TracksConverted: int32(converted),
+				TracksFailed:    int32(failed),
+			})
+		},
+	)
+
+	if err != nil {
+		stream.Send(&converterv1.ConvertPlaylistResponse{
+			Status:  converterv1.ConvertPlaylistResponse_STATUS_ERROR,
+			Message: fmt.Sprintf("Failed to save playlist to destination: %v", err),
+		})
+		return nil
+	}
+
+	// Send "DONE" status
+	stream.Send(&converterv1.ConvertPlaylistResponse{
+		Status:                 converterv1.ConvertPlaylistResponse_STATUS_DONE,
+		Message:                fmt.Sprintf("Successfully converted '%s'.", canonicalPlaylist.Name),
+		DestinationPlaylistUrl: playlistURL,
+		TracksTotal:            totalTracks,
+		// In a real app we might sum the exact converted/failed numbers at the end, 
+		// but the callback handles it mostly. We can just send the final status flag.
+	})
+
+	return nil
 }

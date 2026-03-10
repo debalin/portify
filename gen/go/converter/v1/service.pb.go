@@ -21,6 +21,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ConvertPlaylistResponse_Status int32
+
+const (
+	ConvertPlaylistResponse_STATUS_UNSPECIFIED ConvertPlaylistResponse_Status = 0
+	ConvertPlaylistResponse_STATUS_FETCHING    ConvertPlaylistResponse_Status = 1
+	ConvertPlaylistResponse_STATUS_CONVERTING  ConvertPlaylistResponse_Status = 2
+	ConvertPlaylistResponse_STATUS_DONE        ConvertPlaylistResponse_Status = 3
+	ConvertPlaylistResponse_STATUS_ERROR       ConvertPlaylistResponse_Status = 4
+)
+
+// Enum value maps for ConvertPlaylistResponse_Status.
+var (
+	ConvertPlaylistResponse_Status_name = map[int32]string{
+		0: "STATUS_UNSPECIFIED",
+		1: "STATUS_FETCHING",
+		2: "STATUS_CONVERTING",
+		3: "STATUS_DONE",
+		4: "STATUS_ERROR",
+	}
+	ConvertPlaylistResponse_Status_value = map[string]int32{
+		"STATUS_UNSPECIFIED": 0,
+		"STATUS_FETCHING":    1,
+		"STATUS_CONVERTING":  2,
+		"STATUS_DONE":        3,
+		"STATUS_ERROR":       4,
+	}
+)
+
+func (x ConvertPlaylistResponse_Status) Enum() *ConvertPlaylistResponse_Status {
+	p := new(ConvertPlaylistResponse_Status)
+	*p = x
+	return p
+}
+
+func (x ConvertPlaylistResponse_Status) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConvertPlaylistResponse_Status) Descriptor() protoreflect.EnumDescriptor {
+	return file_converter_v1_service_proto_enumTypes[0].Descriptor()
+}
+
+func (ConvertPlaylistResponse_Status) Type() protoreflect.EnumType {
+	return &file_converter_v1_service_proto_enumTypes[0]
+}
+
+func (x ConvertPlaylistResponse_Status) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ConvertPlaylistResponse_Status.Descriptor instead.
+func (ConvertPlaylistResponse_Status) EnumDescriptor() ([]byte, []int) {
+	return file_converter_v1_service_proto_rawDescGZIP(), []int{10, 0}
+}
+
 type ListProvidersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -553,9 +608,9 @@ func (x *ConvertPlaylistRequest) GetDestinationAuthToken() string {
 }
 
 type ConvertPlaylistResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state   protoimpl.MessageState         `protogen:"open.v1"`
+	Status  ConvertPlaylistResponse_Status `protobuf:"varint,1,opt,name=status,proto3,enum=converter.v1.ConvertPlaylistResponse_Status" json:"status,omitempty"`
+	Message string                         `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	// Link to the newly created playlist.
 	DestinationPlaylistUrl string `protobuf:"bytes,3,opt,name=destination_playlist_url,json=destinationPlaylistUrl,proto3" json:"destination_playlist_url,omitempty"`
 	// Summary of the conversion.
@@ -598,11 +653,11 @@ func (*ConvertPlaylistResponse) Descriptor() ([]byte, []int) {
 	return file_converter_v1_service_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *ConvertPlaylistResponse) GetSuccess() bool {
+func (x *ConvertPlaylistResponse) GetStatus() ConvertPlaylistResponse_Status {
 	if x != nil {
-		return x.Success
+		return x.Status
 	}
-	return false
+	return ConvertPlaylistResponse_STATUS_UNSPECIFIED
 }
 
 func (x *ConvertPlaylistResponse) GetMessage() string {
@@ -685,22 +740,28 @@ const file_converter_v1_service_proto_rawDesc = "" +
 	"\x12source_playlist_id\x18\x03 \x01(\tR\x10sourcePlaylistId\x126\n" +
 	"\x17destination_playlist_id\x18\x04 \x01(\tR\x15destinationPlaylistId\x12*\n" +
 	"\x11source_auth_token\x18\x05 \x01(\tR\x0fsourceAuthToken\x124\n" +
-	"\x16destination_auth_token\x18\x06 \x01(\tR\x14destinationAuthToken\"\xbd\x02\n" +
-	"\x17ConvertPlaylistResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\x16destination_auth_token\x18\x06 \x01(\tR\x14destinationAuthToken\"\xda\x03\n" +
+	"\x17ConvertPlaylistResponse\x12D\n" +
+	"\x06status\x18\x01 \x01(\x0e2,.converter.v1.ConvertPlaylistResponse.StatusR\x06status\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x128\n" +
 	"\x18destination_playlist_url\x18\x03 \x01(\tR\x16destinationPlaylistUrl\x12!\n" +
 	"\ftracks_total\x18\x04 \x01(\x05R\vtracksTotal\x12)\n" +
 	"\x10tracks_converted\x18\x05 \x01(\x05R\x0ftracksConverted\x12#\n" +
 	"\rtracks_failed\x18\x06 \x01(\x05R\ftracksFailed\x12A\n" +
-	"\rfailed_tracks\x18\a \x03(\v2\x1c.converter.v1.CanonicalTrackR\ffailedTracks2\xe6\x03\n" +
+	"\rfailed_tracks\x18\a \x03(\v2\x1c.converter.v1.CanonicalTrackR\ffailedTracks\"o\n" +
+	"\x06Status\x12\x16\n" +
+	"\x12STATUS_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fSTATUS_FETCHING\x10\x01\x12\x15\n" +
+	"\x11STATUS_CONVERTING\x10\x02\x12\x0f\n" +
+	"\vSTATUS_DONE\x10\x03\x12\x10\n" +
+	"\fSTATUS_ERROR\x10\x042\xe8\x03\n" +
 	"\x10ConverterService\x12X\n" +
 	"\rListProviders\x12\".converter.v1.ListProvidersRequest\x1a#.converter.v1.ListProvidersResponse\x12O\n" +
 	"\n" +
 	"GetAuthURL\x12\x1f.converter.v1.GetAuthURLRequest\x1a .converter.v1.GetAuthURLResponse\x12a\n" +
 	"\x10ExchangeAuthCode\x12%.converter.v1.ExchangeAuthCodeRequest\x1a&.converter.v1.ExchangeAuthCodeResponse\x12d\n" +
-	"\x11ListUserPlaylists\x12&.converter.v1.ListUserPlaylistsRequest\x1a'.converter.v1.ListUserPlaylistsResponse\x12^\n" +
-	"\x0fConvertPlaylist\x12$.converter.v1.ConvertPlaylistRequest\x1a%.converter.v1.ConvertPlaylistResponseB<Z:github.com/debalin/portify/gen/go/converter/v1;converterv1b\x06proto3"
+	"\x11ListUserPlaylists\x12&.converter.v1.ListUserPlaylistsRequest\x1a'.converter.v1.ListUserPlaylistsResponse\x12`\n" +
+	"\x0fConvertPlaylist\x12$.converter.v1.ConvertPlaylistRequest\x1a%.converter.v1.ConvertPlaylistResponse0\x01B<Z:github.com/debalin/portify/gen/go/converter/v1;converterv1b\x06proto3"
 
 var (
 	file_converter_v1_service_proto_rawDescOnce sync.Once
@@ -714,42 +775,45 @@ func file_converter_v1_service_proto_rawDescGZIP() []byte {
 	return file_converter_v1_service_proto_rawDescData
 }
 
+var file_converter_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_converter_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_converter_v1_service_proto_goTypes = []any{
-	(*ListProvidersRequest)(nil),      // 0: converter.v1.ListProvidersRequest
-	(*ListProvidersResponse)(nil),     // 1: converter.v1.ListProvidersResponse
-	(*ProviderInfo)(nil),              // 2: converter.v1.ProviderInfo
-	(*GetAuthURLRequest)(nil),         // 3: converter.v1.GetAuthURLRequest
-	(*GetAuthURLResponse)(nil),        // 4: converter.v1.GetAuthURLResponse
-	(*ExchangeAuthCodeRequest)(nil),   // 5: converter.v1.ExchangeAuthCodeRequest
-	(*ExchangeAuthCodeResponse)(nil),  // 6: converter.v1.ExchangeAuthCodeResponse
-	(*ListUserPlaylistsRequest)(nil),  // 7: converter.v1.ListUserPlaylistsRequest
-	(*ListUserPlaylistsResponse)(nil), // 8: converter.v1.ListUserPlaylistsResponse
-	(*ConvertPlaylistRequest)(nil),    // 9: converter.v1.ConvertPlaylistRequest
-	(*ConvertPlaylistResponse)(nil),   // 10: converter.v1.ConvertPlaylistResponse
-	(*CanonicalPlaylist)(nil),         // 11: converter.v1.CanonicalPlaylist
-	(*CanonicalTrack)(nil),            // 12: converter.v1.CanonicalTrack
+	(ConvertPlaylistResponse_Status)(0), // 0: converter.v1.ConvertPlaylistResponse.Status
+	(*ListProvidersRequest)(nil),        // 1: converter.v1.ListProvidersRequest
+	(*ListProvidersResponse)(nil),       // 2: converter.v1.ListProvidersResponse
+	(*ProviderInfo)(nil),                // 3: converter.v1.ProviderInfo
+	(*GetAuthURLRequest)(nil),           // 4: converter.v1.GetAuthURLRequest
+	(*GetAuthURLResponse)(nil),          // 5: converter.v1.GetAuthURLResponse
+	(*ExchangeAuthCodeRequest)(nil),     // 6: converter.v1.ExchangeAuthCodeRequest
+	(*ExchangeAuthCodeResponse)(nil),    // 7: converter.v1.ExchangeAuthCodeResponse
+	(*ListUserPlaylistsRequest)(nil),    // 8: converter.v1.ListUserPlaylistsRequest
+	(*ListUserPlaylistsResponse)(nil),   // 9: converter.v1.ListUserPlaylistsResponse
+	(*ConvertPlaylistRequest)(nil),      // 10: converter.v1.ConvertPlaylistRequest
+	(*ConvertPlaylistResponse)(nil),     // 11: converter.v1.ConvertPlaylistResponse
+	(*CanonicalPlaylist)(nil),           // 12: converter.v1.CanonicalPlaylist
+	(*CanonicalTrack)(nil),              // 13: converter.v1.CanonicalTrack
 }
 var file_converter_v1_service_proto_depIdxs = []int32{
-	2,  // 0: converter.v1.ListProvidersResponse.sources:type_name -> converter.v1.ProviderInfo
-	2,  // 1: converter.v1.ListProvidersResponse.destinations:type_name -> converter.v1.ProviderInfo
-	11, // 2: converter.v1.ListUserPlaylistsResponse.playlists:type_name -> converter.v1.CanonicalPlaylist
-	12, // 3: converter.v1.ConvertPlaylistResponse.failed_tracks:type_name -> converter.v1.CanonicalTrack
-	0,  // 4: converter.v1.ConverterService.ListProviders:input_type -> converter.v1.ListProvidersRequest
-	3,  // 5: converter.v1.ConverterService.GetAuthURL:input_type -> converter.v1.GetAuthURLRequest
-	5,  // 6: converter.v1.ConverterService.ExchangeAuthCode:input_type -> converter.v1.ExchangeAuthCodeRequest
-	7,  // 7: converter.v1.ConverterService.ListUserPlaylists:input_type -> converter.v1.ListUserPlaylistsRequest
-	9,  // 8: converter.v1.ConverterService.ConvertPlaylist:input_type -> converter.v1.ConvertPlaylistRequest
-	1,  // 9: converter.v1.ConverterService.ListProviders:output_type -> converter.v1.ListProvidersResponse
-	4,  // 10: converter.v1.ConverterService.GetAuthURL:output_type -> converter.v1.GetAuthURLResponse
-	6,  // 11: converter.v1.ConverterService.ExchangeAuthCode:output_type -> converter.v1.ExchangeAuthCodeResponse
-	8,  // 12: converter.v1.ConverterService.ListUserPlaylists:output_type -> converter.v1.ListUserPlaylistsResponse
-	10, // 13: converter.v1.ConverterService.ConvertPlaylist:output_type -> converter.v1.ConvertPlaylistResponse
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	3,  // 0: converter.v1.ListProvidersResponse.sources:type_name -> converter.v1.ProviderInfo
+	3,  // 1: converter.v1.ListProvidersResponse.destinations:type_name -> converter.v1.ProviderInfo
+	12, // 2: converter.v1.ListUserPlaylistsResponse.playlists:type_name -> converter.v1.CanonicalPlaylist
+	0,  // 3: converter.v1.ConvertPlaylistResponse.status:type_name -> converter.v1.ConvertPlaylistResponse.Status
+	13, // 4: converter.v1.ConvertPlaylistResponse.failed_tracks:type_name -> converter.v1.CanonicalTrack
+	1,  // 5: converter.v1.ConverterService.ListProviders:input_type -> converter.v1.ListProvidersRequest
+	4,  // 6: converter.v1.ConverterService.GetAuthURL:input_type -> converter.v1.GetAuthURLRequest
+	6,  // 7: converter.v1.ConverterService.ExchangeAuthCode:input_type -> converter.v1.ExchangeAuthCodeRequest
+	8,  // 8: converter.v1.ConverterService.ListUserPlaylists:input_type -> converter.v1.ListUserPlaylistsRequest
+	10, // 9: converter.v1.ConverterService.ConvertPlaylist:input_type -> converter.v1.ConvertPlaylistRequest
+	2,  // 10: converter.v1.ConverterService.ListProviders:output_type -> converter.v1.ListProvidersResponse
+	5,  // 11: converter.v1.ConverterService.GetAuthURL:output_type -> converter.v1.GetAuthURLResponse
+	7,  // 12: converter.v1.ConverterService.ExchangeAuthCode:output_type -> converter.v1.ExchangeAuthCodeResponse
+	9,  // 13: converter.v1.ConverterService.ListUserPlaylists:output_type -> converter.v1.ListUserPlaylistsResponse
+	11, // 14: converter.v1.ConverterService.ConvertPlaylist:output_type -> converter.v1.ConvertPlaylistResponse
+	10, // [10:15] is the sub-list for method output_type
+	5,  // [5:10] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_converter_v1_service_proto_init() }
@@ -763,13 +827,14 @@ func file_converter_v1_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_converter_v1_service_proto_rawDesc), len(file_converter_v1_service_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_converter_v1_service_proto_goTypes,
 		DependencyIndexes: file_converter_v1_service_proto_depIdxs,
+		EnumInfos:         file_converter_v1_service_proto_enumTypes,
 		MessageInfos:      file_converter_v1_service_proto_msgTypes,
 	}.Build()
 	File_converter_v1_service_proto = out.File

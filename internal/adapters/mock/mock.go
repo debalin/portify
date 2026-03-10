@@ -54,6 +54,11 @@ func (d *MockDestination) ExchangeAuthCode(ctx context.Context, code string) (st
 	return "mock-youtube-token", nil
 }
 
-func (d *MockDestination) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string) (string, error) {
+func (d *MockDestination) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, error) {
+	if onProgress != nil {
+		for i := 1; i <= len(playlist.Tracks); i++ {
+			onProgress(i, 0)
+		}
+	}
 	return "https://youtube.com/playlist?list=mock", nil
 }
