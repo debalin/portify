@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ArrowRightLeft, Music, Youtube, Loader2, CheckCircle, AlertCircle, LogIn } from 'lucide-react'
 import { apiClient } from './api'
 import type { ProviderInfo } from './gen/converter/v1/service_pb'
@@ -8,12 +8,21 @@ import './App.css'
 function App() {
   const [sources, setSources] = useState<ProviderInfo[]>([])
   const [destinations, setDestinations] = useState<ProviderInfo[]>([])
-  const [selectedSource, setSelectedSource] = useState('spotify')
-  const [selectedDest, setSelectedDest] = useState('youtube')
+  const [selectedSource, setSelectedSourceState] = useState(() => sessionStorage.getItem('portifySource') || 'spotify')
+  const [selectedDest, setSelectedDestState] = useState(() => sessionStorage.getItem('portifyDest') || 'youtube')
   
-  const [sourcePlaylistId, setSourcePlaylistId] = useState('')
-  const [sourcePlaylists, setSourcePlaylists] = useState<CanonicalPlaylist[]>([])
+  const [sourcePlaylistId, setSourcePlaylistIdState] = useState(() => sessionStorage.getItem('portifyPlaylistId') || '')
+  const [sourcePlaylists, setSourcePlaylistsState] = useState<CanonicalPlaylist[]>(() => {
+    const saved = sessionStorage.getItem('portifyPlaylists')
+    return saved ? JSON.parse(saved) : []
+  })
   
+  // Storage wrappers
+  const setSelectedSource = (val: string) => { sessionStorage.setItem('portifySource', val); setSelectedSourceState(val) }
+  const setSelectedDest = (val: string) => { sessionStorage.setItem('portifyDest', val); setSelectedDestState(val) }
+  const setSourcePlaylistId = (val: string) => { sessionStorage.setItem('portifyPlaylistId', val); setSourcePlaylistIdState(val) }
+  const setSourcePlaylists = (val: CanonicalPlaylist[]) => { sessionStorage.setItem('portifyPlaylists', JSON.stringify(val)); setSourcePlaylistsState(val) }
+
   // Auth state: providerId -> accessToken (Persisted in sessionStorage to survive OAuth redirects)
   const [tokens, setTokensState] = useState<Record<string, string>>(() => {
     const saved = sessionStorage.getItem('portifyAuthTokens')
@@ -47,6 +56,8 @@ function App() {
     loadProviders()
   }, [])
 
+  const authLatch = React.useRef(false)
+
   // Handle OAuth Redirect Callback
   useEffect(() => {
     const handleCallback = async () => {
@@ -54,11 +65,11 @@ function App() {
       const code = params.get('code')
       const state = params.get('state') // We will pass providerId as state
 
-      if (code && state) {
-        // Synchronously remove the code from the URL so React Strict Mode (which double-fires useEffects)
-        // doesn't try to exchange the same code twice.
+      if (code && state && !authLatch.current) {
+        authLatch.current = true
+        console.log("Starting code exchange for", state)
+        // Ensure browser address bar stops carrying the 1-time-use code
         window.history.replaceState({}, document.title, window.location.pathname)
-        
         setIsAuthLoading(true)
         try {
           const res = await apiClient.exchangeAuthCode({
@@ -71,8 +82,9 @@ function App() {
             console.error("Auth failed:", res.errorMessage)
             alert("Authentication failed: " + res.errorMessage)
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("Code exchange error:", err)
+          alert("CRITICAL: Network Error during Code Exchange! " + (err.message || err))
         } finally {
           setIsAuthLoading(false)
         }
@@ -95,12 +107,20 @@ function App() {
           providerId: selectedSource,
           accessToken: token
         })
-        setSourcePlaylists(res.playlists)
-        if (res.playlists.length > 0) {
-           setSourcePlaylistId(res.playlists[0].id)
+        const activePlaylists = res.playlists || []
+        setSourcePlaylists(activePlaylists)
+        if (activePlaylists.length > 0) {
+           setSourcePlaylistId(activePlaylists[0].id)
         }
-      } catch(err) {
-        console.error("Failed to fetch playlists", err)
+      } catch(err: any) {
+        console.error("Failed to fetch playlists (likely network flake or token expired)", err)
+        alert("CRITICAL: Fetch Playlists threw an error! Reason: " + (err.message || err))
+        // Temporarily suppressing the token-wipe feature to prevent aggressive logout loops
+        // setTokens(prev => {
+        //    const next = { ...prev }
+        //    delete next[selectedSource]
+        //    return next
+        // })
       }
     }
     fetchPlaylists()
@@ -293,6 +313,17 @@ function App() {
           ) : 'Start Conversion'}
         </button>
       </main>
+
+      {import.meta.env.VITE_SHOW_DEBUG_PANEL === 'true' && (
+        <div style={{position: 'fixed', bottom: 0, left: 0, right: 0, background: 'darkred', color: 'white', padding: '10px', fontSize: '12px', zIndex: 9999}}>
+          <strong>DEBUG PANEL:</strong> <br />
+          Current tokens state: {JSON.stringify(tokens)} <br />
+          Session Storage tokens: {sessionStorage.getItem('portifyAuthTokens')} <br />
+          Selected Source: {selectedSource} | Selected Dest: {selectedDest} <br />
+          URL params: {window.location.search} <br />
+          authLatch: {String(authLatch.current)}
+        </div>
+      )}
     </div>
   )
 }

@@ -23,6 +23,28 @@
 * **Frontend:** React / Vite (Coming Soon)
 * **Authentication:** OAuth 2.0 
 
+## 🔐 Environment Configuration (.env)
+
+The application relies on `.env` files to securely manage credentials and toggle UI features.
+
+### Backend (`/.env`)
+Create a `.env` file in the root repository directory to supply your OAuth Developer keys:
+```env
+SPOTIFY_ID="your_spotify_client_id"
+SPOTIFY_SECRET="your_spotify_client_secret"
+YOUTUBE_ID="your_google_cloud_client_id"
+YOUTUBE_SECRET="your_google_cloud_client_secret"
+FRONTEND_URL="http://127.0.0.1:5175/"
+```
+> **Important:** The `FRONTEND_URL` must exactly match the authorized Redirect URI you configured in the Spotify and Google Cloud developer dashboards (including the trailing slash).
+
+### Frontend (`/frontend/.env`)
+Create a separate `.env` file inside the `/frontend` directory to toggle Vite-specific features:
+```env
+# Set to 'true' to display a persistent red overlay printing raw App.tsx memory and sessionStorage states.
+VITE_SHOW_DEBUG_PANEL=false
+```
+
 ## 🏃 Getting Started & Build Instructions
 
 ### Prerequisites
