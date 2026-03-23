@@ -114,13 +114,13 @@ function App() {
         }
       } catch(err: any) {
         console.error("Failed to fetch playlists (likely network flake or token expired)", err)
-        alert("CRITICAL: Fetch Playlists threw an error! Reason: " + (err.message || err))
-        // Temporarily suppressing the token-wipe feature to prevent aggressive logout loops
-        // setTokens(prev => {
-        //    const next = { ...prev }
-        //    delete next[selectedSource]
-        //    return next
-        // })
+        alert("API Error: " + (err.message || err) + "\n\n(Auto-logging out)")
+        // Auto-clear the expired token so the user can log in again securely
+        setTokens(prev => {
+           const next = { ...prev }
+           delete next[selectedSource]
+           return next
+        })
       }
     }
     fetchPlaylists()
