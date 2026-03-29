@@ -35,6 +35,13 @@ jobs:
     - name: Run Go Unit Tests
       run: go test -v -coverprofile=coverage.out ./...
 
+    - name: Upload Go Coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: coverage.out
+        flags: backend
+        fail_ci_if_error: false
+
   frontend-test:
     name: React Frontend & Lint
     runs-on: ubuntu-latest
@@ -58,7 +65,14 @@ jobs:
 
     - name: Run Vitest Unit Tests
       working-directory: ./frontend
-      run: npm run test
+      run: npx vitest run --coverage
+
+    - name: Upload Frontend Coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: frontend/coverage/lcov.info
+        flags: frontend
+        fail_ci_if_error: false
 
     - name: Test Build compilation
       working-directory: ./frontend

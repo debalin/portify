@@ -5,6 +5,7 @@
 [![CI/CD Pipeline](https://github.com/debalin/portify/actions/workflows/ci.yml/badge.svg)](https://github.com/debalin/portify/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/debalin/portify)](https://goreportcard.com/report/github.com/debalin/portify)
 [![CodeQL Analysis](https://github.com/debalin/portify/actions/workflows/codeql.yml/badge.svg)](https://github.com/debalin/portify/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/debalin/portify/graph/badge.svg)](https://codecov.io/gh/debalin/portify)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Portify** is an open-source tool that breaks down the walled gardens of music streaming. It allows users to seamlessly convert and synchronize their carefully curated playlists across multiple music platforms — moving your music freely between services like Spotify, YouTube Music, and more.
