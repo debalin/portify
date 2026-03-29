@@ -61,16 +61,20 @@ VITE_SHOW_DEBUG_PANEL=false
 ### Prerequisites
 - [Go 1.25+](https://go.dev/doc/install)
 - [Node.js (v18+)](https://nodejs.org/) & `npm`
-- [Buf CLI](https://buf.build/docs/installation) (for compiling Protocol Buffers)
 
-### 1. Generating Protobufs
+### 1. Developer Environment Bootstrapper (Recommended)
+You can entirely automate installing all required Go developer tools (like `golangci-lint` and `buf`), configuring the `pre-commit` git hooks, scaffolding out your local `.env` skeleton files, and fetching all frontend packages with a single cross-platform make command:
+```bash
+make setup
+```
+
+### 2. Generating Protobufs
 We use `buf` to generate Go models and TypeScript ConnectRPC client code from our `.proto` definitions.
 ```bash
-# Run this from the root of the project every time you change a .proto file
 buf generate
 ```
 
-### 2. Starting the Backend (Go)
+### 3. Starting the Backend (Go)
 Fetch dependencies and start the ConnectRPC Go server (runs on `localhost:8080`).
 ```bash
 go mod tidy

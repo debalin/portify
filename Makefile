@@ -1,4 +1,8 @@
-.PHONY: all test lint format build frontend-test frontend-lint
+.PHONY: all test lint format build frontend-test frontend-lint setup
+
+setup:
+	@echo "=> Bootstrapping local developer environment..."
+	@bash setup.sh || pwsh -File setup.ps1 || powershell -File setup.ps1
 
 all: format lint test build
 
@@ -6,7 +10,7 @@ all: format lint test build
 format:
 	@echo "=> Formatting Go files and Protobuf..."
 	buf format -w
-	go fmt ./...
+	gofmt -s -w .
 
 lint:
 	@echo "=> Running golangci-lint..."
