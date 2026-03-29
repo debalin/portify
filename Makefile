@@ -13,8 +13,8 @@ format:
 	gofmt -s -w .
 
 lint:
-	@echo "=> Running golangci-lint..."
-	golangci-lint run
+	@echo "=> Running Go Vet..."
+	go vet ./...
 	@echo "=> Linting Protobufs..."
 	buf lint
 

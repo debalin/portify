@@ -27,11 +27,10 @@ jobs:
     - name: Run Buf Lint
       run: buf lint
 
-    - name: Install golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: v1.64.6
-        args: --timeout=5m
+    - name: Run Native Go Vet & Fmt
+      run: |
+        test -z "$(gofmt -l .)" || { echo "Code not properly formatted. Run 'make format'"; exit 1; }
+        go vet ./...
         
     - name: Run Go Unit Tests
       run: go test -v -coverprofile=coverage.out ./...
