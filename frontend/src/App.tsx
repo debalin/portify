@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowRightLeft, Music, Youtube, Loader2, CheckCircle, AlertCircle, LogIn } from 'lucide-react'
+import { ArrowRightLeft, Music, Youtube, Loader2, CheckCircle, AlertCircle, LogIn, RefreshCcw } from 'lucide-react'
 import { apiClient } from './api'
 import type { ProviderInfo } from './gen/converter/v1/service_pb'
 import type { CanonicalPlaylist } from './gen/converter/v1/model_pb'
@@ -12,16 +12,24 @@ function App() {
   const [selectedDest, setSelectedDestState] = useState(() => sessionStorage.getItem('portifyDest') || 'youtube')
   
   const [sourcePlaylistId, setSourcePlaylistIdState] = useState(() => sessionStorage.getItem('portifyPlaylistId') || '')
-  const [sourcePlaylists, setSourcePlaylistsState] = useState<CanonicalPlaylist[]>(() => {
-    const saved = sessionStorage.getItem('portifyPlaylists')
-    return saved ? JSON.parse(saved) : []
-  })
+  const [sourcePlaylists, setSourcePlaylists] = useState<CanonicalPlaylist[]>([])
   
+  const [isFetchingSource, setIsFetchingSource] = useState(false)
+  const [refreshSource, setRefreshSource] = useState(0)
+
   // Storage wrappers
   const setSelectedSource = (val: string) => { sessionStorage.setItem('portifySource', val); setSelectedSourceState(val) }
   const setSelectedDest = (val: string) => { sessionStorage.setItem('portifyDest', val); setSelectedDestState(val) }
   const setSourcePlaylistId = (val: string) => { sessionStorage.setItem('portifyPlaylistId', val); setSourcePlaylistIdState(val) }
-  const setSourcePlaylists = (val: CanonicalPlaylist[]) => { sessionStorage.setItem('portifyPlaylists', JSON.stringify(val)); setSourcePlaylistsState(val) }
+
+  const [destPlaylistId, setDestPlaylistIdState] = useState(() => sessionStorage.getItem('portifyDestPlaylistId') || '')
+  const [destPlaylists, setDestPlaylists] = useState<CanonicalPlaylist[]>([])
+  
+  const [isFetchingDest, setIsFetchingDest] = useState(false)
+  const [refreshDest, setRefreshDest] = useState(0)
+
+  // Storage wrappers for dest
+  const setDestPlaylistId = (val: string) => { sessionStorage.setItem('portifyDestPlaylistId', val); setDestPlaylistIdState(val) }
 
   // Auth state: providerId -> accessToken (Persisted in sessionStorage to survive OAuth redirects)
   const [tokens, setTokensState] = useState<Record<string, string>>(() => {
@@ -40,7 +48,7 @@ function App() {
   
   const [isConverting, setIsConverting] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
-  const [result, setResult] = useState<{success: boolean, message: string, url?: string} | null>(null)
+  const [result, setResult] = useState<{success: boolean, message: string, url?: string, failedTracks?: Array<any>} | null>(null)
 
   // Fetch registered providers on load
   useEffect(() => {
@@ -101,7 +109,7 @@ function App() {
         setSourcePlaylists([])
         return
       }
-
+      setIsFetchingSource(true)
       try {
         const res = await apiClient.listUserPlaylists({
           providerId: selectedSource,
@@ -109,22 +117,52 @@ function App() {
         })
         const activePlaylists = res.playlists || []
         setSourcePlaylists(activePlaylists)
-        if (activePlaylists.length > 0) {
+        if (activePlaylists.length > 0 && !sourcePlaylistId) {
            setSourcePlaylistId(activePlaylists[0].id)
         }
       } catch(err: any) {
         console.error("Failed to fetch playlists (likely network flake or token expired)", err)
         alert("API Error: " + (err.message || err) + "\n\n(Auto-logging out)")
-        // Auto-clear the expired token so the user can log in again securely
         setTokens(prev => {
            const next = { ...prev }
            delete next[selectedSource]
            return next
         })
+      } finally {
+        setIsFetchingSource(false)
       }
     }
     fetchPlaylists()
-  }, [selectedSource, tokens])
+  }, [selectedSource, tokens, refreshSource])
+
+  // Fetch Playlists when Dest Token or Provider changes
+  useEffect(() => {
+    const fetchDestPlaylists = async () => {
+      const token = tokens[selectedDest]
+      if (!token) {
+        setDestPlaylists([])
+        return
+      }
+      setIsFetchingDest(true)
+      try {
+        const res = await apiClient.listUserPlaylists({
+          providerId: selectedDest,
+          accessToken: token
+        })
+        const activePlaylists = res.playlists || []
+        setDestPlaylists(activePlaylists)
+      } catch(err: any) {
+        console.error("Failed to fetch dest playlists", err)
+        const msgLower = (err.message || err).toString().toLowerCase()
+        if (msgLower.includes('401') || msgLower.includes('expired') || msgLower.includes('invalid credential')) {
+            setTokens(prev => { const n = {...prev}; delete n[selectedDest]; return n })
+        }
+      } finally {
+        setIsFetchingDest(false)
+      }
+    }
+    fetchDestPlaylists()
+  }, [selectedDest, tokens, refreshDest])
 
   const handleLogin = async (providerId: string) => {
     try {
@@ -158,6 +196,7 @@ function App() {
         sourceProvider: selectedSource,
         destinationProvider: selectedDest,
         sourcePlaylistId: sourcePlaylistId,
+        destinationPlaylistId: destPlaylistId,
         sourceAuthToken: tokens[selectedSource],
         destinationAuthToken: tokens[selectedDest]
       })
@@ -175,7 +214,8 @@ function App() {
            setResult({
              success: true,
              message: res.message,
-             url: res.destinationPlaylistUrl
+             url: res.destinationPlaylistUrl,
+             failedTracks: res.failedTracks
            })
         }
         
@@ -185,6 +225,19 @@ function App() {
              success: false,
              message: res.message
            })
+           
+           const msgLower = res.message.toLowerCase()
+           const isAuthError = msgLower.includes('401') || msgLower.includes('expired') || msgLower.includes('invalid credential') || msgLower.includes('unauthorized') || msgLower.includes('autherror')
+           
+           if (isAuthError) {
+              if (msgLower.includes('source playlist')) {
+                 setTokens(prev => { const n = {...prev}; delete n[selectedSource]; return n })
+              } else if (msgLower.includes('destination')) {
+                 setTokens(prev => { const n = {...prev}; delete n[selectedDest]; return n })
+              } else {
+                 setTokens(prev => { const n = {...prev}; delete n[selectedSource]; delete n[selectedDest]; return n })
+              }
+           }
         }
       }
       
@@ -227,10 +280,21 @@ function App() {
               </button>
             ) : (
               <div className="playlist-picker">
-                 <select value={sourcePlaylistId} onChange={e => setSourcePlaylistId(e.target.value)} className="provider-select inner">
-                    <option value="" disabled>Select a playlist...</option>
-                    {sourcePlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                 </select>
+                 <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                   <select value={sourcePlaylistId} onChange={e => setSourcePlaylistId(e.target.value)} className="provider-select inner" style={{flex: 1}} disabled={isFetchingSource}>
+                      {isFetchingSource ? <option value="">Fetching Playlists...</option> : <option value="" disabled>Select a playlist...</option>}
+                      {sourcePlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                   </select>
+                   <button 
+                     onClick={() => setRefreshSource(r => r+1)} 
+                     className="login-btn" 
+                     style={{margin: 0, padding: '8px', minWidth: 'auto', flex: '0 0 auto', background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)'}}
+                     title="Refresh Playlists"
+                     disabled={isFetchingSource}
+                   >
+                     <RefreshCcw size={16} className={isFetchingSource ? "spinner" : ""} color="white" />
+                   </button>
+                 </div>
               </div>
             )}
             
@@ -259,7 +323,23 @@ function App() {
                  <LogIn size={16} className="login-icon" /> Login to Connect
               </button>
             ) : (
-              <div className="logged-in-badge"><CheckCircle size={16} className="success-icon" /> Connected</div>
+              <div className="playlist-picker">
+                 <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                   <select value={destPlaylistId} onChange={e => setDestPlaylistId(e.target.value)} className="provider-select inner" style={{flex: 1}} disabled={isFetchingDest}>
+                      {isFetchingDest ? <option value="">Fetching Playlists...</option> : <option value="">✨ Create New Playlist</option>}
+                      {destPlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                   </select>
+                   <button 
+                     onClick={() => setRefreshDest(r => r+1)} 
+                     className="login-btn" 
+                     style={{margin: 0, padding: '8px', minWidth: 'auto', flex: '0 0 auto', background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)'}}
+                     title="Refresh Playlists"
+                     disabled={isFetchingDest}
+                   >
+                     <RefreshCcw size={16} className={isFetchingDest ? "spinner" : ""} color="white" />
+                   </button>
+                 </div>
+              </div>
             )}
             
             <div className="provider-role">Destination</div>
@@ -295,9 +375,21 @@ function App() {
                   <p className="result-stats">Converted {progress.converted} of {progress.total} tracks.</p>
               )}
               {result.url && (
-                <a href={result.url} target="_blank" rel="noreferrer" className="result-link">
-                  Open New Playlist &rarr;
+                <a href={result.url} target="portify_dest" rel="noreferrer" className="result-link">
+                  {destPlaylistId ? 'Open Playlist' : 'Open New Playlist'} &rarr;
                 </a>
+              )}
+              {result.failedTracks && result.failedTracks.length > 0 && (
+                <details style={{marginTop: '12px', fontSize: '13px', background: 'rgba(255,100,100,0.1)', borderRadius: '8px', padding: '8px', border: '1px solid rgba(255,100,100,0.2)'}}>
+                  <summary style={{cursor: 'pointer', color: '#ff6b6b', fontWeight: 600}}>
+                     Failed to compile {result.failedTracks.length} tracks
+                  </summary>
+                  <ul style={{marginTop: '8px', paddingLeft: '20px', maxHeight: '150px', overflowY: 'auto', color: '#ffaaaa'}}>
+                     {result.failedTracks.map((t, idx) => (
+                       <li key={idx} style={{marginBottom: '4px'}}>{t.title} - {t.artist}</li>
+                     ))}
+                  </ul>
+                </details>
               )}
             </div>
           </div>

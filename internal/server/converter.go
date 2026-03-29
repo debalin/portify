@@ -124,24 +124,33 @@ func (s *ConverterServer) ListUserPlaylists(
 ) (*connect.Response[converterv1.ListUserPlaylistsResponse], error) {
 	log.Printf("Request received: ListUserPlaylists for %s", req.Msg.ProviderId)
 
-	source, ok := s.registry.GetSource(req.Msg.ProviderId)
-	if !ok {
-		// Currently only sources support listing playlists (destinations might in the future for appending)
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("source provider %s not found", req.Msg.ProviderId))
+	source, ok1 := s.registry.GetSource(req.Msg.ProviderId)
+	if ok1 {
+		playlists, err := source.ListPlaylists(ctx, req.Msg.AccessToken)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		var protoPlaylists []*converterv1.CanonicalPlaylist
+		protoPlaylists = append(protoPlaylists, playlists...)
+		return connect.NewResponse(&converterv1.ListUserPlaylistsResponse{
+			Playlists: protoPlaylists,
+		}), nil
 	}
 
-	playlists, err := source.ListPlaylists(ctx, req.Msg.AccessToken)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	dest, ok2 := s.registry.GetDestination(req.Msg.ProviderId)
+	if ok2 {
+		playlists, err := dest.ListPlaylists(ctx, req.Msg.AccessToken)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		var protoPlaylists []*converterv1.CanonicalPlaylist
+		protoPlaylists = append(protoPlaylists, playlists...)
+		return connect.NewResponse(&converterv1.ListUserPlaylistsResponse{
+			Playlists: protoPlaylists,
+		}), nil
 	}
 
-	// We have to convert from pointers to non-pointers for the response slices based on proto struct gen
-	var protoPlaylists []*converterv1.CanonicalPlaylist
-	protoPlaylists = append(protoPlaylists, playlists...)
-
-	return connect.NewResponse(&converterv1.ListUserPlaylistsResponse{
-		Playlists: protoPlaylists,
-	}), nil
+	return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("provider %s not found", req.Msg.ProviderId))
 }
 
 // ConvertPlaylist triggers the conversion process and streams progress back.
@@ -187,13 +196,17 @@ func (s *ConverterServer) ConvertPlaylist(
 		TracksTotal: totalTracks,
 	})
 
+	var convertedFinal, failedFinal int
+
 	// 2. Save playlist to destination with progress callback
-	playlistURL, err := dest.SavePlaylist(
+	playlistURL, failedTracks, err := dest.SavePlaylist(
 		ctx,
 		canonicalPlaylist,
 		req.Msg.DestinationAuthToken,
-		"",
+		req.Msg.DestinationPlaylistId,
 		func(converted, failed int) {
+			convertedFinal = converted
+			failedFinal = failed
 			stream.Send(&converterv1.ConvertPlaylistResponse{
 				Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
 				Message:         fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed, totalTracks),
@@ -218,8 +231,9 @@ func (s *ConverterServer) ConvertPlaylist(
 		Message:                fmt.Sprintf("Successfully converted '%s'.", canonicalPlaylist.Name),
 		DestinationPlaylistUrl: playlistURL,
 		TracksTotal:            totalTracks,
-		// In a real app we might sum the exact converted/failed numbers at the end, 
-		// but the callback handles it mostly. We can just send the final status flag.
+		TracksConverted:        int32(convertedFinal),
+		TracksFailed:           int32(failedFinal),
+		FailedTracks:           failedTracks,
 	})
 
 	return nil

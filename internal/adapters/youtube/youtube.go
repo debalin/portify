@@ -57,10 +57,40 @@ func (a *Adapter) ExchangeAuthCode(ctx context.Context, code string) (string, er
 	return token.AccessToken, nil
 }
 
+// ListPlaylists fetches the user's existing YouTube playlists.
+func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
+	token := &oauth2.Token{
+		AccessToken: authToken,
+		TokenType:   "Bearer",
+	}
+	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
+	service, err := youtube.NewService(ctx, option.WithHTTPClient(httpClient))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
+	}
+
+	call := service.Playlists.List([]string{"snippet"}).Mine(true).MaxResults(50)
+	response, err := call.Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list youtube playlists: %w", err)
+	}
+
+	var canonicals []*converterv1.CanonicalPlaylist
+	for _, item := range response.Items {
+		canonicals = append(canonicals, &converterv1.CanonicalPlaylist{
+			Id:          item.Id,
+			Name:        item.Snippet.Title,
+			Description: item.Snippet.Description,
+		})
+	}
+
+	return canonicals, nil
+}
+
 // SavePlaylist takes a CanonicalPlaylist and creates it on the user's YouTube account.
 // It uses TrackMatcher to find the corresponding YouTube Video IDs for each track before adding them.
 // Note: This requires an authToken with the "https://www.googleapis.com/auth/youtube" scope.
-func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, error) {
+func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error) {
 	token := &oauth2.Token{
 		AccessToken: authToken,
 		TokenType:   "Bearer",
@@ -70,7 +100,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 	// Initialize the YouTube API client
 	service, err := youtube.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
-		return "", fmt.Errorf("failed to create YouTube client: %w", err)
+		return "", nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
 	playlistID := destinationPlaylistID
@@ -90,13 +120,14 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist)
 		createdPlaylist, err := call.Do()
 		if err != nil {
-			return "", fmt.Errorf("failed to create playlist on YouTube: %w", err)
+			return "", nil, fmt.Errorf("failed to create playlist on YouTube: %w", err)
 		}
 		playlistID = createdPlaylist.Id
 	}
 
 	converted := 0
 	failed := 0
+	var failedTracks []*converterv1.CanonicalTrack
 
 	// 2. Search for tracks and add them
 	for _, track := range playlist.Tracks {
@@ -105,6 +136,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		if err != nil {
 			fmt.Printf("Warning: Failed to match track %s by %s: %v\n", track.Title, track.Artist, err)
 			failed++
+			failedTracks = append(failedTracks, track)
 			if onProgress != nil {
 				onProgress(converted, failed)
 			}
@@ -114,6 +146,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		if videoID == "" {
 			fmt.Printf("Warning: Could not find any suitable match for %s by %s\n", track.Title, track.Artist)
 			failed++
+			failedTracks = append(failedTracks, track)
 			if onProgress != nil {
 				onProgress(converted, failed)
 			}
@@ -136,6 +169,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		if err != nil {
 			fmt.Printf("Warning: Failed to insert video %s into playlist: %v\n", videoID, err)
 			failed++
+			failedTracks = append(failedTracks, track)
 			if onProgress != nil {
 				onProgress(converted, failed)
 			}
@@ -150,7 +184,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 
 	// Return the URL to the completed playlist
 	playlistURL := fmt.Sprintf("https://music.youtube.com/playlist?list=%s", playlistID)
-	return playlistURL, nil
+	return playlistURL, failedTracks, nil
 }
 
 // matchTrack implements a rudimentary TrackMatcher specifically for the YouTube API context.

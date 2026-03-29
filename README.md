@@ -13,8 +13,15 @@
 - [x] **Core Canonical Model:** Protobuf-based universal data structures for seamless translation.
 - [x] **Spotify Adapter (Source):** Full support for fetching tracks from public and private Spotify playlists.
 - [x] **YouTube Adapter (Destination):** Full support for algorithmically matching tracks and generating YouTube playlists.
-- [ ] **React Frontend:** Web UI for user login, provider selection, and conversion triggers.
+- [x] **React Frontend:** Web UI for user login, provider selection, and server-streaming conversion triggers.
 - [ ] **Automated Testing:** Testcontainer integration for E2E flow validation.
+
+## ✨ Key Features
+
+* **Stateless Authentication:** Completely database-free architecture. OAuth 2.0 flows are securely brokered through Go and dynamically pinned to your browser's lightweight `sessionStorage`.
+* **Streaming Progress Tracking:** ConnectRPC leverages Server-Sent Events (SSE) to pipe granular track-by-track conversion progress dynamically into a React progress bar UI.
+* **Dynamic Playlist Generation:** Seamlessly `Create New` distinct destination playlists, or dynamically fetch your existing provider playlists to `Append` tracks onto the end of them without overwriting!
+* **Robust Error Handling:** Granular failure tracking precisely flags unmatched songs inside a collapsible DOM element to prevent massive playlists from locking up the browser, whilst seamlessly invalidating expired OAuth credentials quietly under the hood.
 
 ## 🛠️ Technology Stack
 

@@ -27,7 +27,8 @@ type PlaylistSink interface {
 	Info() ProviderInfo
 	GetAuthURL() string
 	ExchangeAuthCode(ctx context.Context, code string) (string, error)
-	SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, error) // Returns destination URL
+	ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error)
+	SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error) // Returns destination URL and failed tracks
 }
 
 // TrackMatcher defines the interface for matching a canonical track on a specific platform
