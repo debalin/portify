@@ -1,10 +1,26 @@
-.PHONY: all test lint format build frontend-test frontend-lint setup
+.PHONY: all test lint format build frontend-test frontend-lint setup dev dev-backend dev-frontend
 
 setup:
 	@echo "=> Bootstrapping local developer environment..."
 	@bash setup.sh || pwsh -File setup.ps1 || powershell -File setup.ps1
 
 all: format lint test build
+
+# Run both backend and frontend with a single command.
+# The Go server is backgrounded; Ctrl+C kills both processes.
+dev:
+	@echo "=> Starting Portify (backend + frontend)..."
+	@trap 'kill %1 2>/dev/null; exit' INT TERM; \
+	go run ./cmd/server & \
+	cd frontend && npm run dev
+
+dev-backend:
+	@echo "=> Starting Go backend server..."
+	go run ./cmd/server
+
+dev-frontend:
+	@echo "=> Starting Vite dev server..."
+	cd frontend && npm run dev
 
 # Backend (Go & Buf) Commands
 format:

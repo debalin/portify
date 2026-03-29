@@ -119,24 +119,17 @@ Generate Go server stubs and TypeScript ConnectRPC client code from `.proto` def
 buf generate
 ```
 
-### 3. Start the Backend
+### 3. Run the App
+
+Start both the Go backend and React frontend with a single command:
 
 ```bash
-go run ./cmd/server
+make dev
 ```
 
-The ConnectRPC server starts on `http://localhost:8080`.
+This launches the ConnectRPC server on `http://localhost:8080` and the Vite dev server on `http://127.0.0.1:5175` concurrently. Vite proxies all `/converter.v1.ConverterService/*` requests to the Go backend automatically. Press `Ctrl+C` to stop both.
 
-### 4. Start the Frontend
-
-In a separate terminal:
-
-```bash
-cd frontend
-npm run dev
-```
-
-The React app is available at `http://127.0.0.1:5175`. Vite proxies all `/converter.v1.ConverterService/*` requests to the Go backend automatically.
+You can also start them individually with `make dev-backend` or `make dev-frontend`.
 
 ## 🧪 Testing & Quality
 
@@ -145,6 +138,9 @@ The React app is available at `http://127.0.0.1:5175`. Vite proxies all `/conver
 | Command | Description |
 |---|---|
 | `make setup` | Bootstrap the full developer environment |
+| `make dev` | **Start both backend + frontend in one terminal** |
+| `make dev-backend` | Start only the Go backend server |
+| `make dev-frontend` | Start only the Vite dev server |
 | `make format` | Format Go files (`gofmt -s`) and Protobufs (`buf format`) |
 | `make lint` | Run `go vet` and `buf lint` |
 | `make test` | Run Go backend unit tests with coverage |
