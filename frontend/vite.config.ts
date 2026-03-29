@@ -18,5 +18,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/gen/**', 'src/main.tsx', 'src/vite-env.d.ts'],
+    }
   }
 })
