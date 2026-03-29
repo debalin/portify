@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
-	"google.golang.org/api/youtube/v3"
+	yt "google.golang.org/api/youtube/v3"
 	"os"
 )
 
@@ -40,7 +40,7 @@ func getYouTubeOAuthConfig() *oauth2.Config {
 		ClientID:     os.Getenv("YOUTUBE_ID"),
 		ClientSecret: os.Getenv("YOUTUBE_SECRET"),
 		RedirectURL:  redirectURL,
-		Scopes:       []string{youtube.YoutubeScope},
+		Scopes:       []string{yt.YoutubeScope},
 		Endpoint:     google.Endpoint,
 	}
 }
@@ -64,7 +64,7 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 		TokenType:   "Bearer",
 	}
 	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	service, err := youtube.NewService(ctx, option.WithHTTPClient(httpClient))
+	service, err := yt.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
@@ -98,7 +98,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
 
 	// Initialize the YouTube API client
-	service, err := youtube.NewService(ctx, option.WithHTTPClient(httpClient))
+	service, err := yt.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
@@ -107,12 +107,12 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 
 	// 1. Create the empty Playlist only if no target was explicitly given
 	if playlistID == "" {
-		ytPlaylist := &youtube.Playlist{
-			Snippet: &youtube.PlaylistSnippet{
+		ytPlaylist := &yt.Playlist{
+			Snippet: &yt.PlaylistSnippet{
 				Title:       playlist.Name,
 				Description: playlist.Description + "\n\n(Converted via Playlist Converter)",
 			},
-			Status: &youtube.PlaylistStatus{
+			Status: &yt.PlaylistStatus{
 				PrivacyStatus: "private", // Always default to private for safety
 			},
 		}
@@ -154,10 +154,10 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		}
 
 		// Add the found video to the created playlist
-		playlistItem := &youtube.PlaylistItem{
-			Snippet: &youtube.PlaylistItemSnippet{
+		playlistItem := &yt.PlaylistItem{
+			Snippet: &yt.PlaylistItemSnippet{
 				PlaylistId: playlistID,
-				ResourceId: &youtube.ResourceId{
+				ResourceId: &yt.ResourceId{
 					Kind:    "youtube#video",
 					VideoId: videoID,
 				},
@@ -188,7 +188,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 }
 
 // matchTrack implements a rudimentary TrackMatcher specifically for the YouTube API context.
-func (a *Adapter) matchTrack(service *youtube.Service, track *converterv1.CanonicalTrack) (string, error) {
+func (a *Adapter) matchTrack(service *yt.Service, track *converterv1.CanonicalTrack) (string, error) {
 	// YouTube search is very text-dependent. The best format is usually "Title Artist"
 	searchQuery := fmt.Sprintf("%s %s", track.Title, track.Artist)
 

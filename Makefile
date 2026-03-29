@@ -14,7 +14,6 @@ format:
 
 lint:
 	@echo "=> Running golangci-lint..."
-	# Natively assumes golangci-lint is installed in your $PATH
 	golangci-lint run
 	@echo "=> Linting Protobufs..."
 	buf lint

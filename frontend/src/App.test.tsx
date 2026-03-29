@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import React from 'react'
 
 // Dummy fallback to ensure testing environment works before we mock connectRPC properly
 describe('Portify App Bootstrapping', () => {

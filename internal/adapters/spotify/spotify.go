@@ -6,7 +6,7 @@ import (
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/domain"
-	"github.com/zmb3/spotify/v2"
+	sp "github.com/zmb3/spotify/v2"
 	"golang.org/x/oauth2"
 	"os"
 )
@@ -64,7 +64,7 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 		TokenType:   "Bearer",
 	}
 	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	client := spotify.New(httpClient)
+	client := sp.New(httpClient)
 
 	page, err := client.CurrentUsersPlaylists(ctx)
 	if err != nil {
@@ -90,10 +90,10 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 		TokenType:   "Bearer",
 	}
 	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	client := spotify.New(httpClient)
+	client := sp.New(httpClient)
 
 	// Fetch basic playlist details (name, description, etc.)
-	spPlaylist, err := client.GetPlaylist(ctx, spotify.ID(playlistID))
+	spPlaylist, err := client.GetPlaylist(ctx, sp.ID(playlistID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get playlist metadata: %w", err)
 	}
@@ -109,7 +109,7 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 	limit := 100 // Maximum allowed by Spotify API
 
 	for {
-		trackPage, err := client.GetPlaylistItems(ctx, spotify.ID(playlistID), spotify.Limit(limit), spotify.Offset(offset))
+		trackPage, err := client.GetPlaylistItems(ctx, sp.ID(playlistID), sp.Limit(limit), sp.Offset(offset))
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch playlist tracks at offset %d: %w", offset, err)
 		}
