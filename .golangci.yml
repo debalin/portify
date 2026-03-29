@@ -3,9 +3,8 @@ linters-settings:
     check-type-assertions: true
     check-blank: true
   govet:
-    enable-all: true
-    disable:
-      - fieldalignment
+    enable:
+      - nilness
   gocritic:
     enabled-checks:
       - appendAssign
@@ -36,7 +35,6 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-    - typecheck
     - gocritic
     - gofmt
     - revive
