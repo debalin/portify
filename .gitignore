@@ -18,3 +18,9 @@ vendor/
 # Environment files
 .env
 bin/
+
+# Coverage artifacts
+coverage
+coverage.out
+server_cov
+frontend/coverage/
