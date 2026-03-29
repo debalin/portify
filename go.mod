@@ -8,7 +8,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/zmb3/spotify/v2 v2.4.3
 	golang.org/x/net v0.50.0
-	golang.org/x/oauth2 v0.35.0
+	golang.org/x/oauth2 v0.36.0
 	google.golang.org/api v0.150.0
 	google.golang.org/protobuf v1.36.11
 )
