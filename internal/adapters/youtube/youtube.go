@@ -211,7 +211,7 @@ func (a *Adapter) matchTrack(service *youtube.Service, track *converterv1.Canoni
 		return "", nil // No match found
 	}
 
-	// For a production app, we would inspect the snippet.Title and snippet.ChannelTitle 
+	// For a production app, we would inspect the snippet.Title and snippet.ChannelTitle
 	// here to find the closest Levenshtein distance match.
 	// For this MVP, we will trust Google's search algorithm and return the top match.
 	return response.Items[0].Id.VideoId, nil

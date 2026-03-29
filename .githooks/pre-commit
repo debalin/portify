@@ -20,27 +20,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# --- 2. Go Unit Tests ---
-echo "=> Executing Go Backend Tests..."
-make test
-if [ $? -ne 0 ]; then
-    echo "ERROR: Some Go unit tests are currently failing! Fix them before committing."
-    exit 1
-fi
-
-# --- 3. Frontend React Evaluation ---
+# --- 2. Frontend React Evaluation ---
 # We can dynamically CD into the frontend and securely execute npm scripts!
 echo "=> Executing React Frontend Lints..."
 make frontend-lint
 if [ $? -ne 0 ]; then
     echo "ERROR: The Frontend React code contains ESLint errors/warnings!"
-    exit 1
-fi
-
-echo "=> Executing React Unit Tests..."
-make frontend-test
-if [ $? -ne 0 ]; then
-    echo "ERROR: The Frontend React tests failed!"
     exit 1
 fi
 

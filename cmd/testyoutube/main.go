@@ -77,7 +77,7 @@ func main() {
 	}
 
 	adapter := youtube.NewAdapter()
-	
+
 	fmt.Printf("\nCreating playlist \"%s\" on YouTube...\n", dummyPlaylist.Name)
 	playlistURL, _, err := adapter.SavePlaylist(ctx, dummyPlaylist, token.AccessToken, "", func(converted, failed int) {
 		fmt.Printf("   -> Progress: %d converted, %d failed\n", converted, failed)

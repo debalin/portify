@@ -18,7 +18,7 @@ import (
 )
 
 func main() {
-	// Try loading .env from the current running directory 
+	// Try loading .env from the current running directory
 	// (usually project root if run via "go run ./cmd/server" from the root)
 	_ = godotenv.Load(".env")
 
