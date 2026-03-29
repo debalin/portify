@@ -2,6 +2,10 @@
 
 *The Universal Playlist Converter*
 
+[![Build Status](https://github.com/debalin/portify/actions/workflows/ci.yml/badge.svg)](https://github.com/debalin/portify/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/debalin/portify)](https://goreportcard.com/report/github.com/debalin/portify)
+[![CodeQL Analysis](https://github.com/debalin/portify/actions/workflows/codeql.yml/badge.svg)](https://github.com/debalin/portify/actions/workflows/codeql.yml)
+
 **Portify** is an open-source tool aimed at breaking down the walled gardens of music streaming. It allows users to seamlessly convert and synchronize their carefully curated playlists across multiple music platforms—moving your music freely between services like Spotify, YouTube Music, Apple Music, and more!
 
 > ⚠️ **Note:** Portify is currently a **Work in Progress (WIP)**. The core backend architecture is active, but the frontend UI and additional streaming providers are still being developed.
