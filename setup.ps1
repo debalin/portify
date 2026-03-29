@@ -23,7 +23,6 @@ if (!(Test-Path -Path "frontend/.env")) {
 }
 
 Write-Host "[3/4] Installing Go Developer tooling..." -ForegroundColor Cyan
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
 go install github.com/bufbuild/buf/cmd/buf@v1.40.0
 go mod tidy
 

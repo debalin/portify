@@ -26,7 +26,6 @@ if [ ! -f frontend/.env ]; then
 fi
 
 echo "[3/4] Installing Go Developer tooling..."
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
 go install github.com/bufbuild/buf/cmd/buf@v1.40.0
 go mod tidy
 

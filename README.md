@@ -63,7 +63,7 @@ VITE_SHOW_DEBUG_PANEL=false
 - [Node.js (v18+)](https://nodejs.org/) & `npm`
 
 ### 1. Developer Environment Bootstrapper (Recommended)
-You can entirely automate installing all required Go developer tools (like `golangci-lint` and `buf`), configuring the `pre-commit` git hooks, scaffolding out your local `.env` skeleton files, and fetching all frontend packages with a single cross-platform make command:
+You can entirely automate installing all required Go developer tools (like `buf`), configuring the `pre-commit` git hooks, scaffolding out your local `.env` skeleton files, and fetching all frontend packages with a single cross-platform make command:
 ```bash
 make setup
 ```

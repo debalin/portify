@@ -13,7 +13,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "=> Running golangci-lint..."
+echo "=> Running go vet..."
 make lint
 if [ $? -ne 0 ]; then
     echo "ERROR: Backend code has linting errors (unused vars, unchecked errs, etc)!"
