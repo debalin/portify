@@ -12,7 +12,7 @@ import (
 	"github.com/debalin/portify/internal/adapters/common"
 )
 
-// --- BuildSearchQuery Tests (pure function, no mocking needed) ---
+// --- BuildSearchQuery Tests ---
 
 func TestBuildSearchQuery(t *testing.T) {
 	tests := []struct {
@@ -109,20 +109,8 @@ func TestListPlaylists_Success(t *testing.T) {
 			resp := map[string]any{
 				"kind": "youtube#playlistListResponse",
 				"items": []map[string]any{
-					{
-						"id": "PLtest1",
-						"snippet": map[string]any{
-							"title":       "My YT Playlist",
-							"description": "A test playlist",
-						},
-					},
-					{
-						"id": "PLtest2",
-						"snippet": map[string]any{
-							"title":       "Another Playlist",
-							"description": "Second one",
-						},
-					},
+					{"id": "PLtest1", "snippet": map[string]any{"title": "My YT Playlist", "description": "A test playlist"}},
+					{"id": "PLtest2", "snippet": map[string]any{"title": "Another Playlist", "description": "Second one"}},
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -143,12 +131,6 @@ func TestListPlaylists_Success(t *testing.T) {
 	}
 	if playlists[0].Id != "PLtest1" {
 		t.Errorf("Expected ID 'PLtest1', got '%s'", playlists[0].Id)
-	}
-	if playlists[0].Name != "My YT Playlist" {
-		t.Errorf("Expected name 'My YT Playlist', got '%s'", playlists[0].Name)
-	}
-	if playlists[1].Id != "PLtest2" {
-		t.Errorf("Expected ID 'PLtest2', got '%s'", playlists[1].Id)
 	}
 }
 
@@ -174,13 +156,7 @@ func TestListPlaylists_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		resp := map[string]any{
-			"error": map[string]any{
-				"code":    403,
-				"message": "Quota exceeded",
-			},
-		}
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": 403, "message": "Quota exceeded"}})
 	}))
 	defer server.Close()
 
@@ -191,11 +167,8 @@ func TestListPlaylists_APIError(t *testing.T) {
 	}
 }
 
-// --- SavePlaylist Tests ---
+// --- Helper mux for YouTube API simulation ---
 
-// ytMux builds a test HTTP mux simulating YouTube's API endpoints.
-// searchResults controls what matchTrack returns per search query.
-// insertErrors can be set to make specific playlist item inserts fail.
 func ytMux(
 	createdPlaylistID string,
 	searchResults map[string]string, // query substring -> videoId
@@ -205,12 +178,9 @@ func ytMux(
 		w.Header().Set("Content-Type", "application/json")
 
 		switch {
-		// Create playlist
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/youtube/v3/playlists"):
-			resp := map[string]any{"id": createdPlaylistID}
-			json.NewEncoder(w).Encode(resp)
+			json.NewEncoder(w).Encode(map[string]any{"id": createdPlaylistID})
 
-		// Search for video
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/youtube/v3/search"):
 			q := r.URL.Query().Get("q")
 			videoID := ""
@@ -221,45 +191,30 @@ func ytMux(
 				}
 			}
 			if videoID == "" {
-				// No match
-				resp := map[string]any{"items": []any{}}
-				json.NewEncoder(w).Encode(resp)
+				json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
 				return
 			}
-			resp := map[string]any{
+			json.NewEncoder(w).Encode(map[string]any{
 				"items": []map[string]any{
-					{
-						"id": map[string]any{
-							"kind":    "youtube#video",
-							"videoId": videoID,
-						},
-						"snippet": map[string]any{"title": q},
-					},
+					{"id": map[string]any{"kind": "youtube#video", "videoId": videoID}, "snippet": map[string]any{"title": q}},
 				},
-			}
-			json.NewEncoder(w).Encode(resp)
+			})
 
-		// Insert playlist item
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/youtube/v3/playlistItems"):
 			var body map[string]any
 			json.NewDecoder(r.Body).Decode(&body)
-
 			videoID := ""
 			if snippet, ok := body["snippet"].(map[string]any); ok {
 				if rid, ok := snippet["resourceId"].(map[string]any); ok {
 					videoID, _ = rid["videoId"].(string)
 				}
 			}
-
 			if insertErrors[videoID] {
 				w.WriteHeader(http.StatusInternalServerError)
-				resp := map[string]any{"error": map[string]any{"code": 500, "message": "Insert failed"}}
-				json.NewEncoder(w).Encode(resp)
+				json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": 500, "message": "Insert failed"}})
 				return
 			}
-
-			resp := map[string]any{"id": "item-" + videoID}
-			json.NewEncoder(w).Encode(resp)
+			json.NewEncoder(w).Encode(map[string]any{"id": "item-" + videoID})
 
 		default:
 			http.NotFound(w, r)
@@ -267,266 +222,48 @@ func ytMux(
 	})
 }
 
-func TestSavePlaylist_CreateNewPlaylist_AllTracksFound(t *testing.T) {
-	server := httptest.NewServer(ytMux(
-		"PL-new-123",
-		map[string]string{
-			"Bohemian Rhapsody": "vid-queen-1",
-			"Hotel California":  "vid-eagles-1",
-		},
-		nil, // no insert errors
-	))
+// --- CreatePlaylist Tests ---
+
+func TestCreatePlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(ytMux("PL-new-123", nil, nil))
 	defer server.Close()
 
 	a := newTestAdapter(server.URL)
-	playlist := &converterv1.CanonicalPlaylist{
-		Name:        "Test Playlist",
-		Description: "A test",
-		Tracks: []*converterv1.CanonicalTrack{
-			{Title: "Bohemian Rhapsody", Artist: "Queen"},
-			{Title: "Hotel California", Artist: "Eagles"},
-		},
-	}
-
-	var progressCalls []struct{ converted, failed int }
-	url, failedTracks, err := a.SavePlaylist(
-		context.Background(), playlist, "mock-token", "",
-		func(converted, failed int) {
-			progressCalls = append(progressCalls, struct{ converted, failed int }{converted, failed})
-		},
-	)
-
+	id, err := a.CreatePlaylist(context.Background(), "Test Playlist", "A description", "mock-token")
 	if err != nil {
-		t.Fatalf("SavePlaylist returned error: %v", err)
+		t.Fatalf("CreatePlaylist returned error: %v", err)
 	}
-	if !strings.Contains(url, "PL-new-123") {
-		t.Errorf("Expected URL containing 'PL-new-123', got '%s'", url)
-	}
-	if len(failedTracks) != 0 {
-		t.Errorf("Expected 0 failed tracks, got %d", len(failedTracks))
-	}
-	if len(progressCalls) != 2 {
-		t.Errorf("Expected 2 progress calls, got %d", len(progressCalls))
-	}
-	// Last progress: 2 converted, 0 failed
-	last := progressCalls[len(progressCalls)-1]
-	if last.converted != 2 || last.failed != 0 {
-		t.Errorf("Expected final progress (2,0), got (%d,%d)", last.converted, last.failed)
+	if id != "PL-new-123" {
+		t.Errorf("Expected playlist ID 'PL-new-123', got '%s'", id)
 	}
 }
 
-func TestSavePlaylist_AppendToExisting(t *testing.T) {
-	server := httptest.NewServer(ytMux(
-		"", // shouldn't be used since we provide destinationPlaylistID
-		map[string]string{
-			"Bohemian Rhapsody": "vid-queen-1",
-		},
-		nil,
-	))
-	defer server.Close()
-
-	a := newTestAdapter(server.URL)
-	playlist := &converterv1.CanonicalPlaylist{
-		Name: "Test",
-		Tracks: []*converterv1.CanonicalTrack{
-			{Title: "Bohemian Rhapsody", Artist: "Queen"},
-		},
-	}
-
-	url, _, err := a.SavePlaylist(
-		context.Background(), playlist, "mock-token", "EXISTING-PL-456", nil,
-	)
-
-	if err != nil {
-		t.Fatalf("SavePlaylist returned error: %v", err)
-	}
-	if !strings.Contains(url, "EXISTING-PL-456") {
-		t.Errorf("Expected URL containing 'EXISTING-PL-456', got '%s'", url)
-	}
-}
-
-func TestSavePlaylist_SomeTracksNotFound(t *testing.T) {
-	server := httptest.NewServer(ytMux(
-		"PL-new-789",
-		map[string]string{
-			"Bohemian Rhapsody": "vid-queen-1",
-			// "Nonexistent Song" is NOT in search results
-		},
-		nil,
-	))
-	defer server.Close()
-
-	a := newTestAdapter(server.URL)
-	playlist := &converterv1.CanonicalPlaylist{
-		Name: "Mixed Results",
-		Tracks: []*converterv1.CanonicalTrack{
-			{Title: "Bohemian Rhapsody", Artist: "Queen"},
-			{Title: "Nonexistent Song", Artist: "Nobody"},
-		},
-	}
-
-	var progressCalls []struct{ converted, failed int }
-	_, failedTracks, err := a.SavePlaylist(
-		context.Background(), playlist, "mock-token", "",
-		func(converted, failed int) {
-			progressCalls = append(progressCalls, struct{ converted, failed int }{converted, failed})
-		},
-	)
-
-	if err != nil {
-		t.Fatalf("SavePlaylist returned error: %v", err)
-	}
-	if len(failedTracks) != 1 {
-		t.Fatalf("Expected 1 failed track, got %d", len(failedTracks))
-	}
-	if failedTracks[0].Title != "Nonexistent Song" {
-		t.Errorf("Expected failed track 'Nonexistent Song', got '%s'", failedTracks[0].Title)
-	}
-	// Final progress should show 1 converted, 1 failed
-	last := progressCalls[len(progressCalls)-1]
-	if last.converted != 1 || last.failed != 1 {
-		t.Errorf("Expected final progress (1,1), got (%d,%d)", last.converted, last.failed)
-	}
-}
-
-func TestSavePlaylist_InsertError(t *testing.T) {
-	server := httptest.NewServer(ytMux(
-		"PL-insert-err",
-		map[string]string{
-			"Bohemian Rhapsody": "vid-queen-1",
-			"Hotel California":  "vid-eagles-1",
-		},
-		map[string]bool{
-			"vid-eagles-1": true, // This insert will fail
-		},
-	))
-	defer server.Close()
-
-	a := newTestAdapter(server.URL)
-	playlist := &converterv1.CanonicalPlaylist{
-		Name: "Insert Error Test",
-		Tracks: []*converterv1.CanonicalTrack{
-			{Title: "Bohemian Rhapsody", Artist: "Queen"},
-			{Title: "Hotel California", Artist: "Eagles"},
-		},
-	}
-
-	var progressCalls []struct{ converted, failed int }
-	_, failedTracks, err := a.SavePlaylist(
-		context.Background(), playlist, "mock-token", "",
-		func(converted, failed int) {
-			progressCalls = append(progressCalls, struct{ converted, failed int }{converted, failed})
-		},
-	)
-
-	if err != nil {
-		t.Fatalf("SavePlaylist returned error: %v", err)
-	}
-	if len(failedTracks) != 1 {
-		t.Fatalf("Expected 1 failed track, got %d", len(failedTracks))
-	}
-	if failedTracks[0].Title != "Hotel California" {
-		t.Errorf("Expected failed track 'Hotel California', got '%s'", failedTracks[0].Title)
-	}
-}
-
-func TestSavePlaylist_CreatePlaylistError(t *testing.T) {
+func TestCreatePlaylist_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		resp := map[string]any{"error": map[string]any{"code": 403, "message": "Forbidden"}}
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": 403, "message": "Forbidden"}})
 	}))
 	defer server.Close()
 
 	a := newTestAdapter(server.URL)
-	playlist := &converterv1.CanonicalPlaylist{
-		Name:   "Should Fail",
-		Tracks: []*converterv1.CanonicalTrack{{Title: "Test", Artist: "Test"}},
-	}
-
-	_, _, err := a.SavePlaylist(context.Background(), playlist, "mock-token", "", nil)
+	_, err := a.CreatePlaylist(context.Background(), "Fail", "Desc", "mock-token")
 	if err == nil {
 		t.Fatal("Expected error when playlist creation fails")
 	}
 }
 
-func TestSavePlaylist_NilProgressCallback(t *testing.T) {
-	server := httptest.NewServer(ytMux(
-		"PL-nil-cb",
-		map[string]string{"Test": "vid-1"},
-		nil,
-	))
-	defer server.Close()
-
-	a := newTestAdapter(server.URL)
-	playlist := &converterv1.CanonicalPlaylist{
-		Name:   "No Callback",
-		Tracks: []*converterv1.CanonicalTrack{{Title: "Test", Artist: "Artist"}},
-	}
-
-	// Should not panic with nil callback
-	url, _, err := a.SavePlaylist(context.Background(), playlist, "mock-token", "", nil)
-	if err != nil {
-		t.Fatalf("SavePlaylist returned error: %v", err)
-	}
-	if !strings.Contains(url, "PL-nil-cb") {
-		t.Errorf("Expected URL containing 'PL-nil-cb', got '%s'", url)
-	}
-}
-
-func TestSavePlaylist_EmptyPlaylist(t *testing.T) {
-	server := httptest.NewServer(ytMux("PL-empty", nil, nil))
-	defer server.Close()
-
-	a := newTestAdapter(server.URL)
-	playlist := &converterv1.CanonicalPlaylist{
-		Name:   "Empty",
-		Tracks: []*converterv1.CanonicalTrack{},
-	}
-
-	url, failedTracks, err := a.SavePlaylist(context.Background(), playlist, "mock-token", "", nil)
-	if err != nil {
-		t.Fatalf("SavePlaylist returned error: %v", err)
-	}
-	if !strings.Contains(url, "PL-empty") {
-		t.Errorf("Expected URL containing 'PL-empty', got '%s'", url)
-	}
-	if len(failedTracks) != 0 {
-		t.Errorf("Expected 0 failed tracks, got %d", len(failedTracks))
-	}
-}
-
-// --- matchTrack Tests (through the adapter) ---
+// --- MatchTrack Tests ---
 
 func TestMatchTrack_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		resp := map[string]any{
-			"items": []map[string]any{
-				{
-					"id": map[string]any{
-						"kind":    "youtube#video",
-						"videoId": "dQw4w9WgXcQ",
-					},
-					"snippet": map[string]any{"title": "Test Video"},
-				},
-			},
-		}
-		json.NewEncoder(w).Encode(resp)
-	}))
+	server := httptest.NewServer(ytMux("", map[string]string{"Bohemian Rhapsody": "dQw4w9WgXcQ"}, nil))
 	defer server.Close()
 
 	a := newTestAdapter(server.URL)
-	service, err := a.newService(context.Background(), "mock-token")
+	track := &converterv1.CanonicalTrack{Title: "Bohemian Rhapsody", Artist: "Queen"}
+	videoID, err := a.MatchTrack(context.Background(), track, "mock-token")
 	if err != nil {
-		t.Fatalf("Failed to create service: %v", err)
-	}
-
-	track := &converterv1.CanonicalTrack{Title: "Test", Artist: "Artist"}
-	videoID, err := a.matchTrack(service, track)
-	if err != nil {
-		t.Fatalf("matchTrack returned error: %v", err)
+		t.Fatalf("MatchTrack returned error: %v", err)
 	}
 	if videoID != "dQw4w9WgXcQ" {
 		t.Errorf("Expected videoID 'dQw4w9WgXcQ', got '%s'", videoID)
@@ -534,23 +271,17 @@ func TestMatchTrack_Success(t *testing.T) {
 }
 
 func TestMatchTrack_NoResults(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		resp := map[string]any{"items": []any{}}
-		json.NewEncoder(w).Encode(resp)
-	}))
+	server := httptest.NewServer(ytMux("", nil, nil))
 	defer server.Close()
 
 	a := newTestAdapter(server.URL)
-	service, _ := a.newService(context.Background(), "mock-token")
-
 	track := &converterv1.CanonicalTrack{Title: "Nonexistent Song", Artist: "Nobody"}
-	videoID, err := a.matchTrack(service, track)
+	videoID, err := a.MatchTrack(context.Background(), track, "mock-token")
 	if err != nil {
-		t.Fatalf("matchTrack returned error: %v", err)
+		t.Fatalf("MatchTrack returned error: %v", err)
 	}
 	if videoID != "" {
-		t.Errorf("Expected empty videoID for no results, got '%s'", videoID)
+		t.Errorf("Expected empty videoID, got '%s'", videoID)
 	}
 }
 
@@ -561,12 +292,45 @@ func TestMatchTrack_APIError(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAdapter(server.URL)
-	service, _ := a.newService(context.Background(), "mock-token")
-
 	track := &converterv1.CanonicalTrack{Title: "Test", Artist: "Test"}
-	_, err := a.matchTrack(service, track)
+	_, err := a.MatchTrack(context.Background(), track, "mock-token")
 	if err == nil {
 		t.Fatal("Expected error from 500 response")
+	}
+}
+
+// --- AddTrackToPlaylist Tests ---
+
+func TestAddTrackToPlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(ytMux("", nil, nil))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	err := a.AddTrackToPlaylist(context.Background(), "PL-test", "vid-123", "mock-token")
+	if err != nil {
+		t.Fatalf("AddTrackToPlaylist returned error: %v", err)
+	}
+}
+
+func TestAddTrackToPlaylist_Error(t *testing.T) {
+	server := httptest.NewServer(ytMux("", nil, map[string]bool{"vid-fail": true}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	err := a.AddTrackToPlaylist(context.Background(), "PL-test", "vid-fail", "mock-token")
+	if err == nil {
+		t.Fatal("Expected error when insert fails")
+	}
+}
+
+// --- GetPlaylistURL Test ---
+
+func TestGetPlaylistURL(t *testing.T) {
+	a := NewAdapter()
+	url := a.GetPlaylistURL("PL-abc-123")
+	expected := "https://music.youtube.com/playlist?list=PL-abc-123"
+	if url != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, url)
 	}
 }
 

@@ -81,99 +81,41 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 	return canonicals, nil
 }
 
-// SavePlaylist takes a CanonicalPlaylist and creates it on the user's YouTube account.
-func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error) {
+// CreatePlaylist creates a new, empty playlist on YouTube.
+// Returns the platform-specific playlist ID.
+func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error) {
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create YouTube client: %w", err)
+		return "", fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
-	playlistID := destinationPlaylistID
-
-	if playlistID == "" {
-		ytPlaylist := &yt.Playlist{
-			Snippet: &yt.PlaylistSnippet{
-				Title:       playlist.Name,
-				Description: playlist.Description + "\n\n(Converted via Playlist Converter)",
-			},
-			Status: &yt.PlaylistStatus{
-				PrivacyStatus: "private",
-			},
-		}
-
-		call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist)
-		createdPlaylist, err := call.Do()
-		if err != nil {
-			return "", nil, fmt.Errorf("failed to create playlist on YouTube: %w", err)
-		}
-		playlistID = createdPlaylist.Id
+	ytPlaylist := &yt.Playlist{
+		Snippet: &yt.PlaylistSnippet{
+			Title:       name,
+			Description: description + "\n\n(Converted via Portify)",
+		},
+		Status: &yt.PlaylistStatus{
+			PrivacyStatus: "private",
+		},
 	}
 
-	converted := 0
-	failed := 0
-	var failedTracks []*converterv1.CanonicalTrack
-
-	for _, track := range playlist.Tracks {
-		videoID, err := a.matchTrack(service, track)
-		if err != nil {
-			fmt.Printf("Warning: Failed to match track %s by %s: %v\n", track.Title, track.Artist, err)
-			failed++
-			failedTracks = append(failedTracks, track)
-			if onProgress != nil {
-				onProgress(converted, failed)
-			}
-			continue
-		}
-
-		if videoID == "" {
-			fmt.Printf("Warning: Could not find any suitable match for %s by %s\n", track.Title, track.Artist)
-			failed++
-			failedTracks = append(failedTracks, track)
-			if onProgress != nil {
-				onProgress(converted, failed)
-			}
-			continue
-		}
-
-		playlistItem := &yt.PlaylistItem{
-			Snippet: &yt.PlaylistItemSnippet{
-				PlaylistId: playlistID,
-				ResourceId: &yt.ResourceId{
-					Kind:    "youtube#video",
-					VideoId: videoID,
-				},
-			},
-		}
-
-		insertCall := service.PlaylistItems.Insert([]string{"snippet"}, playlistItem)
-		_, err = insertCall.Do()
-		if err != nil {
-			fmt.Printf("Warning: Failed to insert video %s into playlist: %v\n", videoID, err)
-			failed++
-			failedTracks = append(failedTracks, track)
-			if onProgress != nil {
-				onProgress(converted, failed)
-			}
-			continue
-		}
-
-		converted++
-		if onProgress != nil {
-			onProgress(converted, failed)
-		}
+	call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist)
+	created, err := call.Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to create playlist on YouTube: %w", err)
 	}
 
-	playlistURL := fmt.Sprintf("https://music.youtube.com/playlist?list=%s", playlistID)
-	return playlistURL, failedTracks, nil
+	return created.Id, nil
 }
 
-// BuildSearchQuery constructs the YouTube search query for a given track.
-func BuildSearchQuery(track *converterv1.CanonicalTrack) string {
-	return fmt.Sprintf("%s %s official audio", track.Title, track.Artist)
-}
+// MatchTrack searches YouTube for a video matching the given canonical track.
+// Returns the YouTube video ID, or empty string if no match was found.
+func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	service, err := a.newService(ctx, authToken)
+	if err != nil {
+		return "", fmt.Errorf("failed to create YouTube client: %w", err)
+	}
 
-// matchTrack implements a rudimentary TrackMatcher specifically for the YouTube API context.
-func (a *Adapter) matchTrack(service *yt.Service, track *converterv1.CanonicalTrack) (string, error) {
 	searchQuery := BuildSearchQuery(track)
 
 	call := service.Search.List([]string{"id", "snippet"}).
@@ -191,4 +133,40 @@ func (a *Adapter) matchTrack(service *yt.Service, track *converterv1.CanonicalTr
 	}
 
 	return response.Items[0].Id.VideoId, nil
+}
+
+// AddTrackToPlaylist inserts a single matched video into a YouTube playlist.
+func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	service, err := a.newService(ctx, authToken)
+	if err != nil {
+		return fmt.Errorf("failed to create YouTube client: %w", err)
+	}
+
+	playlistItem := &yt.PlaylistItem{
+		Snippet: &yt.PlaylistItemSnippet{
+			PlaylistId: playlistID,
+			ResourceId: &yt.ResourceId{
+				Kind:    "youtube#video",
+				VideoId: trackID,
+			},
+		},
+	}
+
+	insertCall := service.PlaylistItems.Insert([]string{"snippet"}, playlistItem)
+	_, err = insertCall.Do()
+	if err != nil {
+		return fmt.Errorf("failed to insert video %s into playlist: %w", trackID, err)
+	}
+
+	return nil
+}
+
+// GetPlaylistURL returns the YouTube Music URL for a playlist.
+func (a *Adapter) GetPlaylistURL(playlistID string) string {
+	return fmt.Sprintf("https://music.youtube.com/playlist?list=%s", playlistID)
+}
+
+// BuildSearchQuery constructs the YouTube search query for a given track.
+func BuildSearchQuery(track *converterv1.CanonicalTrack) string {
+	return fmt.Sprintf("%s %s official audio", track.Title, track.Artist)
 }

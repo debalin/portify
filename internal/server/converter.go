@@ -153,7 +153,13 @@ func (s *ConverterServer) ListUserPlaylists(
 	return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("provider %s not found", req.Msg.ProviderId))
 }
 
-// ConvertPlaylist triggers the conversion process and streams progress back.
+// ConvertPlaylist orchestrates the full conversion flow and streams progress back to the client.
+//
+// The flow is:
+//  1. Fetch playlist from source (FetchPlaylist)
+//  2. Create or select destination playlist (CreatePlaylist or use existing ID)
+//  3. For each track: match on destination (MatchTrack) + insert (AddTrackToPlaylist)
+//  4. Stream progress after each track
 func (s *ConverterServer) ConvertPlaylist(
 	ctx context.Context,
 	req *connect.Request[converterv1.ConvertPlaylistRequest],
@@ -171,13 +177,12 @@ func (s *ConverterServer) ConvertPlaylist(
 		return connect.NewError(connect.CodeNotFound, fmt.Errorf("destination provider %s not found", req.Msg.DestinationProvider))
 	}
 
-	// Send initial "FETCHING" status
+	// Step 1: Fetch playlist from source
 	stream.Send(&converterv1.ConvertPlaylistResponse{
 		Status:  converterv1.ConvertPlaylistResponse_STATUS_FETCHING,
 		Message: "Fetching playlist data from source...",
 	})
 
-	// 1. Fetch playlist from source
 	canonicalPlaylist, err := source.FetchPlaylist(ctx, req.Msg.SourcePlaylistId, req.Msg.SourceAuthToken)
 	if err != nil {
 		stream.Send(&converterv1.ConvertPlaylistResponse{
@@ -189,50 +194,72 @@ func (s *ConverterServer) ConvertPlaylist(
 
 	totalTracks := int32(len(canonicalPlaylist.Tracks))
 
-	// Send "CONVERTING" status start
+	// Step 2: Create or select destination playlist
+	playlistID := req.Msg.DestinationPlaylistId
+	if playlistID == "" {
+		playlistID, err = dest.CreatePlaylist(ctx, canonicalPlaylist.Name, canonicalPlaylist.Description, req.Msg.DestinationAuthToken)
+		if err != nil {
+			stream.Send(&converterv1.ConvertPlaylistResponse{
+				Status:  converterv1.ConvertPlaylistResponse_STATUS_ERROR,
+				Message: fmt.Sprintf("Failed to create destination playlist: %v", err),
+			})
+			return nil
+		}
+	}
+
 	stream.Send(&converterv1.ConvertPlaylistResponse{
 		Status:      converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
 		Message:     fmt.Sprintf("Starting conversion for '%s'...", canonicalPlaylist.Name),
 		TracksTotal: totalTracks,
 	})
 
-	var convertedFinal, failedFinal int
+	// Step 3: Match and insert each track
+	converted := int32(0)
+	failed := int32(0)
+	var failedTracks []*converterv1.CanonicalTrack
 
-	// 2. Save playlist to destination with progress callback
-	playlistURL, failedTracks, err := dest.SavePlaylist(
-		ctx,
-		canonicalPlaylist,
-		req.Msg.DestinationAuthToken,
-		req.Msg.DestinationPlaylistId,
-		func(converted, failed int) {
-			convertedFinal = converted
-			failedFinal = failed
+	for _, track := range canonicalPlaylist.Tracks {
+		// Match
+		trackID, err := dest.MatchTrack(ctx, track, req.Msg.DestinationAuthToken)
+		if err != nil || trackID == "" {
+			failed++
+			failedTracks = append(failedTracks, track)
 			stream.Send(&converterv1.ConvertPlaylistResponse{
 				Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
 				Message:         fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed, totalTracks),
 				TracksTotal:     totalTracks,
-				TracksConverted: int32(converted),
-				TracksFailed:    int32(failed),
+				TracksConverted: converted,
+				TracksFailed:    failed,
 			})
-		},
-	)
+			continue
+		}
 
-	if err != nil {
+		// Insert
+		err = dest.AddTrackToPlaylist(ctx, playlistID, trackID, req.Msg.DestinationAuthToken)
+		if err != nil {
+			failed++
+			failedTracks = append(failedTracks, track)
+		} else {
+			converted++
+		}
+
 		stream.Send(&converterv1.ConvertPlaylistResponse{
-			Status:  converterv1.ConvertPlaylistResponse_STATUS_ERROR,
-			Message: fmt.Sprintf("Failed to save playlist to destination: %v", err),
+			Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
+			Message:         fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed, totalTracks),
+			TracksTotal:     totalTracks,
+			TracksConverted: converted,
+			TracksFailed:    failed,
 		})
-		return nil
 	}
 
-	// Send "DONE" status
+	// Step 4: Done
 	stream.Send(&converterv1.ConvertPlaylistResponse{
 		Status:                 converterv1.ConvertPlaylistResponse_STATUS_DONE,
 		Message:                fmt.Sprintf("Successfully converted '%s'.", canonicalPlaylist.Name),
-		DestinationPlaylistUrl: playlistURL,
+		DestinationPlaylistUrl: dest.GetPlaylistURL(playlistID),
 		TracksTotal:            totalTracks,
-		TracksConverted:        int32(convertedFinal),
-		TracksFailed:           int32(failedFinal),
+		TracksConverted:        converted,
+		TracksFailed:           failed,
 		FailedTracks:           failedTracks,
 	})
 

@@ -282,7 +282,7 @@ func TestConvertPlaylist_Success(t *testing.T) {
 		t.Fatalf("Expected DONE status, but stream ended before receiving it")
 	}
 
-	expectedURL := "https://youtube.com/playlist?list=mock"
+	expectedURL := "https://youtube.com/playlist?list=mock-playlist-id"
 	if finalRes.DestinationPlaylistUrl != expectedURL {
 		t.Errorf("Expected URL %s, got %s", expectedURL, finalRes.DestinationPlaylistUrl)
 	}
@@ -553,7 +553,7 @@ func TestConvertPlaylist_FetchPlaylistError(t *testing.T) {
 	}
 }
 
-func TestConvertPlaylist_SavePlaylistError(t *testing.T) {
+func TestConvertPlaylist_CreatePlaylistError(t *testing.T) {
 	registry := domain.NewProviderRegistry()
 	registry.RegisterSource(&mock.MockSourceWithTracks{})
 	registry.RegisterDestination(&mock.MockFailingDestination{})
@@ -575,12 +575,12 @@ func TestConvertPlaylist_SavePlaylistError(t *testing.T) {
 	for stream.Receive() {
 		if stream.Msg().Status == converterv1.ConvertPlaylistResponse_STATUS_ERROR {
 			gotError = true
-			if !strings.Contains(stream.Msg().Message, "save") || !strings.Contains(stream.Msg().Message, "destination") {
-				t.Errorf("Expected save/destination error message, got: %s", stream.Msg().Message)
+			if !strings.Contains(stream.Msg().Message, "create") || !strings.Contains(stream.Msg().Message, "destination") {
+				t.Errorf("Expected create/destination error message, got: %s", stream.Msg().Message)
 			}
 		}
 	}
 	if !gotError {
-		t.Error("Expected an ERROR status in the stream for save failure")
+		t.Error("Expected an ERROR status in the stream for create playlist failure")
 	}
 }

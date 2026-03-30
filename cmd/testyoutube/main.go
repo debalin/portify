@@ -79,15 +79,27 @@ func main() {
 	adapter := youtube.NewAdapter()
 
 	fmt.Printf("\nCreating playlist \"%s\" on YouTube...\n", dummyPlaylist.Name)
-	playlistURL, _, err := adapter.SavePlaylist(ctx, dummyPlaylist, token.AccessToken, "", func(converted, failed int) {
-		fmt.Printf("   -> Progress: %d converted, %d failed\n", converted, failed)
-	})
+	playlistID, err := adapter.CreatePlaylist(ctx, dummyPlaylist.Name, dummyPlaylist.Description, token.AccessToken)
 	if err != nil {
-		log.Fatalf("Failed to save playlist to YouTube: %v", err)
+		log.Fatalf("Failed to create playlist on YouTube: %v", err)
+	}
+
+	for _, track := range dummyPlaylist.Tracks {
+		videoID, err := adapter.MatchTrack(ctx, track, token.AccessToken)
+		if err != nil || videoID == "" {
+			fmt.Printf("   -> Failed to match: %s by %s\n", track.Title, track.Artist)
+			continue
+		}
+		err = adapter.AddTrackToPlaylist(ctx, playlistID, videoID, token.AccessToken)
+		if err != nil {
+			fmt.Printf("   -> Failed to insert: %s (%v)\n", videoID, err)
+			continue
+		}
+		fmt.Printf("   -> Added: %s by %s\n", track.Title, track.Artist)
 	}
 
 	fmt.Printf("\nSUCCESS! Playlist created.\n")
-	fmt.Printf("View it here: %s\n", playlistURL)
+	fmt.Printf("View it here: %s\n", adapter.GetPlaylistURL(playlistID))
 	os.Exit(0)
 }
 

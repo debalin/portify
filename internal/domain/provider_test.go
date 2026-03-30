@@ -41,8 +41,17 @@ func (d *stubSink) ExchangeAuthCode(_ context.Context, code string) (string, err
 func (d *stubSink) ListPlaylists(_ context.Context, _ string) ([]*converterv1.CanonicalPlaylist, error) {
 	return []*converterv1.CanonicalPlaylist{{Id: "dest-1", Name: "Dest Playlist"}}, nil
 }
-func (d *stubSink) SavePlaylist(_ context.Context, _ *converterv1.CanonicalPlaylist, _ string, _ string, _ func(int, int)) (string, []*converterv1.CanonicalTrack, error) {
-	return "https://dest.example.com/playlist", nil, nil
+func (d *stubSink) CreatePlaylist(_ context.Context, name string, _ string, _ string) (string, error) {
+	return "created-" + name, nil
+}
+func (d *stubSink) MatchTrack(_ context.Context, track *converterv1.CanonicalTrack, _ string) (string, error) {
+	return "matched-" + track.Title, nil
+}
+func (d *stubSink) AddTrackToPlaylist(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+func (d *stubSink) GetPlaylistURL(playlistID string) string {
+	return "https://dest.example.com/playlist/" + playlistID
 }
 
 // --- Tests ---

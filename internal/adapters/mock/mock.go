@@ -8,6 +8,8 @@ import (
 	"github.com/debalin/portify/internal/domain"
 )
 
+// --- MockSource ---
+
 type MockSource struct{}
 
 func (s *MockSource) Info() domain.ProviderInfo {
@@ -37,6 +39,8 @@ func (s *MockSource) FetchPlaylist(ctx context.Context, playlistID string, authT
 	return &converterv1.CanonicalPlaylist{}, nil
 }
 
+// --- MockDestination ---
+
 type MockDestination struct{}
 
 func (d *MockDestination) Info() domain.ProviderInfo {
@@ -61,16 +65,24 @@ func (d *MockDestination) ListPlaylists(ctx context.Context, authToken string) (
 	}, nil
 }
 
-func (d *MockDestination) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error) {
-	if onProgress != nil {
-		for i := 1; i <= len(playlist.Tracks); i++ {
-			onProgress(i, 0)
-		}
-	}
-	return "https://youtube.com/playlist?list=mock", nil, nil
+func (d *MockDestination) CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error) {
+	return "mock-playlist-id", nil
 }
 
-// MockSourceWithTracks returns a playlist populated with sample tracks for progress testing.
+func (d *MockDestination) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	return "mock-video-" + track.Title, nil
+}
+
+func (d *MockDestination) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	return nil
+}
+
+func (d *MockDestination) GetPlaylistURL(playlistID string) string {
+	return "https://youtube.com/playlist?list=" + playlistID
+}
+
+// --- MockSourceWithTracks ---
+
 type MockSourceWithTracks struct{}
 
 func (s *MockSourceWithTracks) Info() domain.ProviderInfo {
@@ -105,7 +117,8 @@ func (s *MockSourceWithTracks) FetchPlaylist(ctx context.Context, playlistID str
 	}, nil
 }
 
-// MockFailingSource returns errors for testing error handling paths.
+// --- MockFailingSource ---
+
 type MockFailingSource struct{}
 
 func (s *MockFailingSource) Info() domain.ProviderInfo {
@@ -122,7 +135,8 @@ func (s *MockFailingSource) FetchPlaylist(_ context.Context, _ string, _ string)
 	return nil, fmt.Errorf("fetch playlist failed")
 }
 
-// MockFailingDestination returns errors for testing error handling paths.
+// --- MockFailingDestination ---
+
 type MockFailingDestination struct{}
 
 func (d *MockFailingDestination) Info() domain.ProviderInfo {
@@ -135,6 +149,15 @@ func (d *MockFailingDestination) ExchangeAuthCode(_ context.Context, _ string) (
 func (d *MockFailingDestination) ListPlaylists(_ context.Context, _ string) ([]*converterv1.CanonicalPlaylist, error) {
 	return nil, fmt.Errorf("list playlists failed")
 }
-func (d *MockFailingDestination) SavePlaylist(_ context.Context, _ *converterv1.CanonicalPlaylist, _ string, _ string, _ func(int, int)) (string, []*converterv1.CanonicalTrack, error) {
-	return "", nil, fmt.Errorf("save playlist failed")
+func (d *MockFailingDestination) CreatePlaylist(_ context.Context, _ string, _ string, _ string) (string, error) {
+	return "", fmt.Errorf("create playlist failed")
+}
+func (d *MockFailingDestination) MatchTrack(_ context.Context, _ *converterv1.CanonicalTrack, _ string) (string, error) {
+	return "", fmt.Errorf("match track failed")
+}
+func (d *MockFailingDestination) AddTrackToPlaylist(_ context.Context, _ string, _ string, _ string) error {
+	return fmt.Errorf("add track failed")
+}
+func (d *MockFailingDestination) GetPlaylistURL(playlistID string) string {
+	return "http://fail"
 }

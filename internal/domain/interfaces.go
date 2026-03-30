@@ -63,11 +63,13 @@ type PlaylistSource interface {
 // PlaylistSink defines the interface for writing playlists to a streaming service.
 //
 // Implement this interface to add a new destination platform (e.g., YouTube Music, Tidal).
-// The conversion engine calls these methods in order:
+// The conversion engine orchestrates these methods in order:
 //  1. GetAuthURL() → user authorizes → frontend sends back the auth code
 //  2. ExchangeAuthCode() → backend exchanges code for an access token
 //  3. ListPlaylists() → user optionally picks an existing playlist to append to
-//  4. SavePlaylist() → backend creates/updates the playlist with matched tracks
+//  4. CreatePlaylist() → backend creates a new playlist (or uses existing ID)
+//  5. FOR EACH track: MatchTrack() → find platform-specific ID
+//  6. FOR EACH matched track: AddTrackToPlaylist() → insert into playlist
 type PlaylistSink interface {
 	// Info returns metadata about this provider (ID, display name, auth URL).
 	Info() ProviderInfo
@@ -83,22 +85,22 @@ type PlaylistSink interface {
 	// instead of always creating a new one.
 	ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error)
 
-	// SavePlaylist creates a new playlist (or appends to an existing one) on this service.
-	//
-	// Parameters:
-	//   - playlist: the canonical playlist with tracks to save
-	//   - authToken: the user's access token for this service
-	//   - destinationPlaylistID: if non-empty, tracks are appended to this existing playlist
-	//     instead of creating a new one
-	//   - onProgress: optional callback invoked after each track is processed, reporting
-	//     cumulative counts of successfully converted and failed tracks
-	//
-	// Returns:
-	//   - string: URL of the created/updated playlist on this service
-	//   - []*CanonicalTrack: list of tracks that could not be matched or inserted
-	//   - error: fatal error (e.g., auth failure, playlist creation failure)
-	//
-	// Per-track failures (no match found, insert error) are NOT fatal — the method
-	// continues processing remaining tracks and reports failures via the return value.
-	SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error)
+	// CreatePlaylist creates a new, empty playlist on this service.
+	// Returns the platform-specific playlist ID.
+	// If the user chose an existing playlist, the server skips this call and uses
+	// the existing ID directly.
+	CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error)
+
+	// MatchTrack searches this service's catalog for a track matching the given canonical track.
+	// Returns the platform-specific track/video ID, or empty string if no match was found.
+	// A non-nil error indicates a transient failure (e.g., API rate limit) — the caller
+	// decides whether to retry or skip.
+	MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error)
+
+	// AddTrackToPlaylist inserts a single matched track into a playlist.
+	// The trackID is a platform-specific ID returned by MatchTrack.
+	AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error
+
+	// GetPlaylistURL returns the user-facing URL for a playlist given its platform ID.
+	GetPlaylistURL(playlistID string) string
 }
