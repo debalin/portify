@@ -14,6 +14,7 @@ coverage:
 ignore:
   - "gen/**"                          # Auto-generated protobuf code
   - "cmd/server/main.go"              # Entrypoint wiring — no logic to test
+  - "internal/adapters/mock/**"       # Test mock adapters. No need to track coverage.
   - "cmd/testspotify/**"              # Manual test harnesses
   - "cmd/testyoutube/**"              # Manual test harnesses
   - "frontend/src/main.tsx"           # React entrypoint — no logic
