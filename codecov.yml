@@ -16,8 +16,6 @@ ignore:
   - "cmd/server/main.go"              # Entrypoint wiring — no logic to test
   - "cmd/testspotify/**"              # Manual test harnesses
   - "cmd/testyoutube/**"              # Manual test harnesses
-  - "internal/adapters/spotify/**"    # Real API adapter — needs integration tests
-  - "internal/adapters/youtube/**"    # Real API adapter — needs integration tests
   - "frontend/src/main.tsx"           # React entrypoint — no logic
   - "frontend/src/gen/**"             # Auto-generated ConnectRPC code
 
