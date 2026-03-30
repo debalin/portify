@@ -16,7 +16,7 @@ type stubSource struct {
 func (s *stubSource) Info() ProviderInfo {
 	return ProviderInfo{ID: s.id, Name: s.id + " name", AuthURLHint: "https://auth." + s.id}
 }
-func (s *stubSource) GetAuthURL() string                           { return "https://auth." + s.id }
+func (s *stubSource) GetAuthURL() string { return "https://auth." + s.id }
 func (s *stubSource) ExchangeAuthCode(_ context.Context, code string) (string, error) {
 	return "token-" + code, nil
 }
@@ -34,7 +34,7 @@ type stubSink struct {
 func (d *stubSink) Info() ProviderInfo {
 	return ProviderInfo{ID: d.id, Name: d.id + " name", AuthURLHint: "https://auth." + d.id}
 }
-func (d *stubSink) GetAuthURL() string                           { return "https://auth." + d.id }
+func (d *stubSink) GetAuthURL() string { return "https://auth." + d.id }
 func (d *stubSink) ExchangeAuthCode(_ context.Context, code string) (string, error) {
 	return "token-" + code, nil
 }
