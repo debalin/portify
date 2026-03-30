@@ -1,0 +1,32 @@
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+    patch:
+      default:
+        target: 80%
+
+ignore:
+  - "gen/**"                          # Auto-generated protobuf code
+  - "cmd/server/main.go"              # Entrypoint wiring — no logic to test
+  - "cmd/testspotify/**"              # Manual test harnesses
+  - "cmd/testyoutube/**"              # Manual test harnesses
+  - "internal/adapters/spotify/**"    # Real API adapter — needs integration tests
+  - "internal/adapters/youtube/**"    # Real API adapter — needs integration tests
+  - "frontend/src/main.tsx"           # React entrypoint — no logic
+  - "frontend/src/gen/**"             # Auto-generated ConnectRPC code
+
+flags:
+  backend:
+    paths:
+      - "internal/"
+    carryforward: true
+  frontend:
+    paths:
+      - "frontend/src/"
+    carryforward: true
