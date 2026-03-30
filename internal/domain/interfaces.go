@@ -102,14 +102,3 @@ type PlaylistSink interface {
 	// continues processing remaining tracks and reports failures via the return value.
 	SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error)
 }
-
-// TrackMatcher defines the interface for matching a canonical track on a specific platform.
-//
-// This is currently implemented inline within each adapter's save logic, but can be
-// extracted into a standalone strategy for more sophisticated matching (e.g., ISRC lookup,
-// fuzzy title matching, Levenshtein distance scoring).
-type TrackMatcher interface {
-	// Match attempts to find the platform-specific ID for the given canonical track.
-	// Returns the platform track/video ID, or empty string if no match was found.
-	Match(ctx context.Context, track *converterv1.CanonicalTrack) (string, error)
-}
