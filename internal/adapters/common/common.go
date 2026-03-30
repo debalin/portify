@@ -21,7 +21,32 @@ type OAuthConfig struct {
 // BaseAdapter contains shared fields and methods for all provider adapters.
 type BaseAdapter struct {
 	HTTPClient *http.Client // If set, used instead of creating from token (for testing)
+	BaseURL    string       // If set, overrides the API base URL (for testing)
 	OAuthCfg   OAuthConfig  // Provider-specific OAuth configuration
+}
+
+// Option configures a BaseAdapter.
+type Option func(*BaseAdapter)
+
+// WithHTTPClient injects a custom HTTP client (used for testing).
+func WithHTTPClient(c *http.Client) Option {
+	return func(b *BaseAdapter) {
+		b.HTTPClient = c
+	}
+}
+
+// WithBaseURL overrides the API base URL (used for testing).
+func WithBaseURL(url string) Option {
+	return func(b *BaseAdapter) {
+		b.BaseURL = url
+	}
+}
+
+// ApplyOptions applies a set of options to the BaseAdapter.
+func (b *BaseAdapter) ApplyOptions(opts []Option) {
+	for _, opt := range opts {
+		opt(b)
+	}
 }
 
 // GetRedirectURL returns the frontend redirect URL from env or the default.

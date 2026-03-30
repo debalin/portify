@@ -3,7 +3,6 @@ package spotify
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/adapters/common"
@@ -17,18 +16,8 @@ type Adapter struct {
 	common.BaseAdapter
 }
 
-// Option configures an Adapter.
-type Option func(*Adapter)
-
-// WithHTTPClient injects a custom HTTP client (used for testing).
-func WithHTTPClient(c *http.Client) Option {
-	return func(a *Adapter) {
-		a.HTTPClient = c
-	}
-}
-
 // NewAdapter creates a new Spotify adapter instance
-func NewAdapter(opts ...Option) *Adapter {
+func NewAdapter(opts ...common.Option) *Adapter {
 	a := &Adapter{
 		BaseAdapter: common.BaseAdapter{
 			OAuthCfg: common.OAuthConfig{
@@ -43,9 +32,7 @@ func NewAdapter(opts ...Option) *Adapter {
 			},
 		},
 	}
-	for _, opt := range opts {
-		opt(a)
-	}
+	a.ApplyOptions(opts)
 	return a
 }
 
@@ -83,7 +70,6 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
-	// Fetch basic playlist details (name, description, etc.)
 	spPlaylist, err := client.GetPlaylist(ctx, sp.ID(playlistID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get playlist metadata: %w", err)
@@ -95,9 +81,8 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 		Tracks:      make([]*converterv1.CanonicalTrack, 0, spPlaylist.Tracks.Total),
 	}
 
-	// Fetch all tracks with pagination
 	offset := 0
-	limit := 100 // Maximum allowed by Spotify API
+	limit := 100
 
 	for {
 		trackPage, err := client.GetPlaylistItems(ctx, sp.ID(playlistID), sp.Limit(limit), sp.Offset(offset))
@@ -106,20 +91,17 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 		}
 
 		for _, item := range trackPage.Items {
-			// Skip items if there isn't actually a track (e.g. episodic content or local files without a valid track attached)
 			if item.Track.Track == nil {
 				continue
 			}
 
 			track := item.Track.Track
 
-			// Determine primary artist
 			artistName := ""
 			if len(track.Artists) > 0 {
 				artistName = track.Artists[0].Name
 			}
 
-			// Extract ISRC if available (mostly useful for track matching)
 			isrc := ""
 			if val, ok := track.ExternalIDs["isrc"]; ok {
 				isrc = val
@@ -136,7 +118,6 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 			canonical.Tracks = append(canonical.Tracks, canonicalTrack)
 		}
 
-		// If we fetched the total number of available tracks, break the pagination loop
 		if len(canonical.Tracks) >= int(trackPage.Total) || len(trackPage.Items) == 0 {
 			break
 		}

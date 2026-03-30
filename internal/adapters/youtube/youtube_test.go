@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
+	"github.com/debalin/portify/internal/adapters/common"
 )
 
 // --- BuildSearchQuery Tests (pure function, no mocking needed) ---
@@ -56,19 +57,19 @@ func TestNewAdapter(t *testing.T) {
 	if a.HTTPClient != nil {
 		t.Error("Expected nil httpClient by default")
 	}
-	if a.baseURL != "" {
-		t.Error("Expected empty baseURL by default")
+	if a.BaseURL != "" {
+		t.Error("Expected empty BaseURL by default")
 	}
 }
 
 func TestNewAdapterWithOptions(t *testing.T) {
 	c := &http.Client{}
-	a := NewAdapter(WithHTTPClient(c), WithBaseURL("http://test:8080"))
+	a := NewAdapter(common.WithHTTPClient(c), common.WithBaseURL("http://test:8080"))
 	if a.HTTPClient != c {
 		t.Error("Expected injected HTTP client")
 	}
-	if a.baseURL != "http://test:8080" {
-		t.Errorf("Expected baseURL 'http://test:8080', got '%s'", a.baseURL)
+	if a.BaseURL != "http://test:8080" {
+		t.Errorf("Expected BaseURL 'http://test:8080', got '%s'", a.BaseURL)
 	}
 }
 
@@ -95,8 +96,8 @@ func TestGetAuthURL(t *testing.T) {
 
 func newTestAdapter(serverURL string) *Adapter {
 	return NewAdapter(
-		WithHTTPClient(http.DefaultClient),
-		WithBaseURL(serverURL),
+		common.WithHTTPClient(http.DefaultClient),
+		common.WithBaseURL(serverURL),
 	)
 }
 
@@ -573,7 +574,7 @@ func TestMatchTrack_APIError(t *testing.T) {
 
 func TestGetClient_WithInjected(t *testing.T) {
 	injected := &http.Client{}
-	a := NewAdapter(WithHTTPClient(injected))
+	a := NewAdapter(common.WithHTTPClient(injected))
 	got := a.GetHTTPClient(context.Background(), "any-token")
 	if got != injected {
 		t.Error("Expected injected client to be returned")

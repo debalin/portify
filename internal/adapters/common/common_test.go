@@ -92,3 +92,43 @@ func TestBaseAdapter_GetHTTPClient_CreatesFromToken(t *testing.T) {
 		t.Error("Expected non-nil client")
 	}
 }
+
+func TestWithHTTPClient(t *testing.T) {
+	c := &http.Client{}
+	opt := WithHTTPClient(c)
+
+	b := &BaseAdapter{}
+	opt(b)
+
+	if b.HTTPClient != c {
+		t.Error("Expected WithHTTPClient to set HTTPClient")
+	}
+}
+
+func TestWithBaseURL(t *testing.T) {
+	opt := WithBaseURL("http://test:9090")
+
+	b := &BaseAdapter{}
+	opt(b)
+
+	if b.BaseURL != "http://test:9090" {
+		t.Errorf("Expected BaseURL 'http://test:9090', got '%s'", b.BaseURL)
+	}
+}
+
+func TestApplyOptions(t *testing.T) {
+	c := &http.Client{}
+	b := &BaseAdapter{}
+
+	b.ApplyOptions([]Option{
+		WithHTTPClient(c),
+		WithBaseURL("http://test:8080"),
+	})
+
+	if b.HTTPClient != c {
+		t.Error("Expected ApplyOptions to set HTTPClient")
+	}
+	if b.BaseURL != "http://test:8080" {
+		t.Errorf("Expected ApplyOptions to set BaseURL, got '%s'", b.BaseURL)
+	}
+}

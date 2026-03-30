@@ -3,7 +3,6 @@ package youtube
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/adapters/common"
@@ -16,28 +15,10 @@ import (
 // Adapter implements domain.PlaylistSink for YouTube
 type Adapter struct {
 	common.BaseAdapter
-	baseURL string // If set, overrides the YouTube API base URL (for testing)
-}
-
-// Option configures an Adapter.
-type Option func(*Adapter)
-
-// WithHTTPClient injects a custom HTTP client (used for testing).
-func WithHTTPClient(c *http.Client) Option {
-	return func(a *Adapter) {
-		a.HTTPClient = c
-	}
-}
-
-// WithBaseURL overrides the YouTube API base URL (used for testing).
-func WithBaseURL(url string) Option {
-	return func(a *Adapter) {
-		a.baseURL = url
-	}
 }
 
 // NewAdapter creates a new YouTube adapter instance
-func NewAdapter(opts ...Option) *Adapter {
+func NewAdapter(opts ...common.Option) *Adapter {
 	a := &Adapter{
 		BaseAdapter: common.BaseAdapter{
 			OAuthCfg: common.OAuthConfig{
@@ -49,9 +30,7 @@ func NewAdapter(opts ...Option) *Adapter {
 			},
 		},
 	}
-	for _, opt := range opts {
-		opt(a)
-	}
+	a.ApplyOptions(opts)
 	return a
 }
 
@@ -62,8 +41,8 @@ func (a *Adapter) newService(ctx context.Context, authToken string) (*yt.Service
 	if err != nil {
 		return nil, err
 	}
-	if a.baseURL != "" {
-		service.BasePath = a.baseURL
+	if a.BaseURL != "" {
+		service.BasePath = a.BaseURL
 	}
 	return service, nil
 }
@@ -111,7 +90,6 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 
 	playlistID := destinationPlaylistID
 
-	// 1. Create the empty Playlist only if no target was explicitly given
 	if playlistID == "" {
 		ytPlaylist := &yt.Playlist{
 			Snippet: &yt.PlaylistSnippet{
@@ -119,7 +97,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 				Description: playlist.Description + "\n\n(Converted via Playlist Converter)",
 			},
 			Status: &yt.PlaylistStatus{
-				PrivacyStatus: "private", // Always default to private for safety
+				PrivacyStatus: "private",
 			},
 		}
 
@@ -135,9 +113,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 	failed := 0
 	var failedTracks []*converterv1.CanonicalTrack
 
-	// 2. Search for tracks and add them
 	for _, track := range playlist.Tracks {
-		// Attempt to match the track directly inside this Adapter since the logic is highly YouTube-specific.
 		videoID, err := a.matchTrack(service, track)
 		if err != nil {
 			fmt.Printf("Warning: Failed to match track %s by %s: %v\n", track.Title, track.Artist, err)
@@ -146,7 +122,7 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 			if onProgress != nil {
 				onProgress(converted, failed)
 			}
-			continue // Skip tracks we can't find rather than failing the whole playlist
+			continue
 		}
 
 		if videoID == "" {
@@ -159,7 +135,6 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 			continue
 		}
 
-		// Add the found video to the created playlist
 		playlistItem := &yt.PlaylistItem{
 			Snippet: &yt.PlaylistItemSnippet{
 				PlaylistId: playlistID,
@@ -188,13 +163,11 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 		}
 	}
 
-	// Return the URL to the completed playlist
 	playlistURL := fmt.Sprintf("https://music.youtube.com/playlist?list=%s", playlistID)
 	return playlistURL, failedTracks, nil
 }
 
 // BuildSearchQuery constructs the YouTube search query for a given track.
-// Exported for testing.
 func BuildSearchQuery(track *converterv1.CanonicalTrack) string {
 	return fmt.Sprintf("%s %s official audio", track.Title, track.Artist)
 }
@@ -206,7 +179,7 @@ func (a *Adapter) matchTrack(service *yt.Service, track *converterv1.CanonicalTr
 	call := service.Search.List([]string{"id", "snippet"}).
 		Q(searchQuery).
 		Type("video").
-		MaxResults(3) // Get top 3 to inspect
+		MaxResults(3)
 
 	response, err := call.Do()
 	if err != nil {
@@ -214,7 +187,7 @@ func (a *Adapter) matchTrack(service *yt.Service, track *converterv1.CanonicalTr
 	}
 
 	if len(response.Items) == 0 {
-		return "", nil // No match found
+		return "", nil
 	}
 
 	return response.Items[0].Id.VideoId, nil

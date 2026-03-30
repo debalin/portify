@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/debalin/portify/internal/adapters/common"
 )
 
 // rewriteTransport redirects all HTTP requests to a test server.
@@ -41,7 +43,7 @@ func TestNewAdapter(t *testing.T) {
 
 func TestNewAdapterWithHTTPClient(t *testing.T) {
 	c := &http.Client{}
-	a := NewAdapter(WithHTTPClient(c))
+	a := NewAdapter(common.WithHTTPClient(c))
 	if a.HTTPClient != c {
 		t.Error("Expected injected HTTP client")
 	}
@@ -86,7 +88,7 @@ func TestListPlaylists_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := NewAdapter(WithHTTPClient(testClient(server.URL)))
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
 	playlists, err := a.ListPlaylists(context.Background(), "mock-token")
 	if err != nil {
 		t.Fatalf("ListPlaylists returned error: %v", err)
@@ -113,7 +115,7 @@ func TestListPlaylists_Empty(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := NewAdapter(WithHTTPClient(testClient(server.URL)))
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
 	playlists, err := a.ListPlaylists(context.Background(), "mock-token")
 	if err != nil {
 		t.Fatalf("ListPlaylists returned error: %v", err)
@@ -130,7 +132,7 @@ func TestListPlaylists_APIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := NewAdapter(WithHTTPClient(testClient(server.URL)))
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
 	_, err := a.ListPlaylists(context.Background(), "mock-token")
 	if err == nil {
 		t.Fatal("Expected error from 500 response")
@@ -191,7 +193,7 @@ func TestFetchPlaylist_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := NewAdapter(WithHTTPClient(testClient(server.URL)))
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
 	playlist, err := a.FetchPlaylist(context.Background(), "test-playlist-id", "mock-token")
 	if err != nil {
 		t.Fatalf("FetchPlaylist returned error: %v", err)
@@ -229,7 +231,7 @@ func TestFetchPlaylist_MetadataError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := NewAdapter(WithHTTPClient(testClient(server.URL)))
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
 	_, err := a.FetchPlaylist(context.Background(), "bad-id", "mock-token")
 	if err == nil {
 		t.Fatal("Expected error for nonexistent playlist")
@@ -271,7 +273,7 @@ func TestFetchPlaylist_TrackWithNoArtist(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := NewAdapter(WithHTTPClient(testClient(server.URL)))
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
 	playlist, err := a.FetchPlaylist(context.Background(), "no-artist-playlist", "mock-token")
 	if err != nil {
 		t.Fatalf("FetchPlaylist returned error: %v", err)
@@ -291,7 +293,7 @@ func TestFetchPlaylist_TrackWithNoArtist(t *testing.T) {
 
 func TestGetClient_WithInjected(t *testing.T) {
 	injected := &http.Client{}
-	a := NewAdapter(WithHTTPClient(injected))
+	a := NewAdapter(common.WithHTTPClient(injected))
 	got := a.GetHTTPClient(context.Background(), "any-token")
 	if got != injected {
 		t.Error("Expected injected client to be returned")
