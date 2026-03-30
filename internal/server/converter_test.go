@@ -436,6 +436,56 @@ func TestConvertPlaylist_WithAppendToExisting(t *testing.T) {
 	}
 }
 
+func TestConvertPlaylist_PartialFailures(t *testing.T) {
+	registry := domain.NewProviderRegistry()
+	registry.RegisterSource(&mock.MockSourceWithTracks{})
+	registry.RegisterDestination(&mock.MockPartialFailDestination{})
+
+	ts, client := setupTestServer(t, registry)
+	defer ts.Close()
+
+	stream, err := client.ConvertPlaylist(context.Background(), connect.NewRequest(&converterv1.ConvertPlaylistRequest{
+		SourceProvider:       "spotify",
+		DestinationProvider:  "youtube",
+		SourcePlaylistId:     "playlist-with-tracks",
+		SourceAuthToken:      "token",
+		DestinationAuthToken: "token",
+	}))
+	if err != nil {
+		t.Fatalf("Expected no error initializing stream, got: %v", err)
+	}
+
+	var finalRes *converterv1.ConvertPlaylistResponse
+	for stream.Receive() {
+		msg := stream.Msg()
+		if msg.Status == converterv1.ConvertPlaylistResponse_STATUS_DONE {
+			finalRes = msg
+		}
+	}
+
+	if err := stream.Err(); err != nil {
+		t.Fatalf("Stream error: %v", err)
+	}
+
+	if finalRes == nil {
+		t.Fatal("Expected DONE message")
+	}
+
+	// MockSourceWithTracks has 3 tracks:
+	//   "Bohemian Rhapsody" -> matched, inserted OK (converted)
+	//   "Stairway to Heaven" -> match returns "" (failed - no match)
+	//   "Hotel California" -> matched, but insert fails (failed - insert error)
+	if finalRes.TracksConverted != 1 {
+		t.Errorf("Expected 1 converted track, got %d", finalRes.TracksConverted)
+	}
+	if finalRes.TracksFailed != 2 {
+		t.Errorf("Expected 2 failed tracks, got %d", finalRes.TracksFailed)
+	}
+	if len(finalRes.FailedTracks) != 2 {
+		t.Errorf("Expected 2 failed track entries, got %d", len(finalRes.FailedTracks))
+	}
+}
+
 func TestNewConverterServer(t *testing.T) {
 	registry := domain.NewProviderRegistry()
 	srv := NewConverterServer(registry)

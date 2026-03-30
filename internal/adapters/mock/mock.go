@@ -81,6 +81,43 @@ func (d *MockDestination) GetPlaylistURL(playlistID string) string {
 	return "https://youtube.com/playlist?list=" + playlistID
 }
 
+// --- MockPartialFailDestination ---
+// Simulates a destination where some tracks fail to match and some fail to insert.
+
+type MockPartialFailDestination struct{}
+
+func (d *MockPartialFailDestination) Info() domain.ProviderInfo {
+	return domain.ProviderInfo{ID: "youtube", Name: "YouTube (Partial Fail)", AuthURLHint: d.GetAuthURL()}
+}
+func (d *MockPartialFailDestination) GetAuthURL() string {
+	return "http://localhost:5175/?code=mock"
+}
+func (d *MockPartialFailDestination) ExchangeAuthCode(_ context.Context, _ string) (string, error) {
+	return "mock-token", nil
+}
+func (d *MockPartialFailDestination) ListPlaylists(_ context.Context, _ string) ([]*converterv1.CanonicalPlaylist, error) {
+	return nil, nil
+}
+func (d *MockPartialFailDestination) CreatePlaylist(_ context.Context, _ string, _ string, _ string) (string, error) {
+	return "partial-fail-playlist", nil
+}
+func (d *MockPartialFailDestination) MatchTrack(_ context.Context, track *converterv1.CanonicalTrack, _ string) (string, error) {
+	// First track matches, second returns empty (not found), third matches but will fail insert
+	if track.Title == "Stairway to Heaven" {
+		return "", nil // No match
+	}
+	return "vid-" + track.Title, nil
+}
+func (d *MockPartialFailDestination) AddTrackToPlaylist(_ context.Context, _ string, trackID string, _ string) error {
+	if trackID == "vid-Hotel California" {
+		return fmt.Errorf("insert failed for track")
+	}
+	return nil
+}
+func (d *MockPartialFailDestination) GetPlaylistURL(playlistID string) string {
+	return "https://youtube.com/playlist?list=" + playlistID
+}
+
 // --- MockSourceWithTracks ---
 
 type MockSourceWithTracks struct{}
