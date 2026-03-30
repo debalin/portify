@@ -17,6 +17,7 @@ import (
 // Adapter implements domain.PlaylistSink for YouTube
 type Adapter struct {
 	httpClient *http.Client // If set, used instead of creating from token (for testing)
+	baseURL    string       // If set, overrides the YouTube API base URL (for testing)
 }
 
 // Option configures an Adapter.
@@ -26,6 +27,13 @@ type Option func(*Adapter)
 func WithHTTPClient(c *http.Client) Option {
 	return func(a *Adapter) {
 		a.httpClient = c
+	}
+}
+
+// WithBaseURL overrides the YouTube API base URL (used for testing).
+func WithBaseURL(url string) Option {
+	return func(a *Adapter) {
+		a.baseURL = url
 	}
 }
 
@@ -53,7 +61,14 @@ func (a *Adapter) getClient(ctx context.Context, authToken string) *http.Client 
 // newService creates a YouTube API service, using the injected client if available.
 func (a *Adapter) newService(ctx context.Context, authToken string) (*yt.Service, error) {
 	httpClient := a.getClient(ctx, authToken)
-	return yt.NewService(ctx, option.WithHTTPClient(httpClient))
+	service, err := yt.NewService(ctx, option.WithHTTPClient(httpClient))
+	if err != nil {
+		return nil, err
+	}
+	if a.baseURL != "" {
+		service.BasePath = a.baseURL
+	}
+	return service, nil
 }
 
 // Info returns basic information about the YouTube provider
