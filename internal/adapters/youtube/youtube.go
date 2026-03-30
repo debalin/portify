@@ -3,6 +3,8 @@ package youtube
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/domain"
@@ -10,15 +12,48 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	yt "google.golang.org/api/youtube/v3"
-	"os"
 )
 
 // Adapter implements domain.PlaylistSink for YouTube
-type Adapter struct{}
+type Adapter struct {
+	httpClient *http.Client // If set, used instead of creating from token (for testing)
+}
+
+// Option configures an Adapter.
+type Option func(*Adapter)
+
+// WithHTTPClient injects a custom HTTP client (used for testing).
+func WithHTTPClient(c *http.Client) Option {
+	return func(a *Adapter) {
+		a.httpClient = c
+	}
+}
 
 // NewAdapter creates a new YouTube adapter instance
-func NewAdapter() *Adapter {
-	return &Adapter{}
+func NewAdapter(opts ...Option) *Adapter {
+	a := &Adapter{}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
+}
+
+// getClient returns the injected HTTP client or creates one from the auth token.
+func (a *Adapter) getClient(ctx context.Context, authToken string) *http.Client {
+	if a.httpClient != nil {
+		return a.httpClient
+	}
+	token := &oauth2.Token{
+		AccessToken: authToken,
+		TokenType:   "Bearer",
+	}
+	return oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
+}
+
+// newService creates a YouTube API service, using the injected client if available.
+func (a *Adapter) newService(ctx context.Context, authToken string) (*yt.Service, error) {
+	httpClient := a.getClient(ctx, authToken)
+	return yt.NewService(ctx, option.WithHTTPClient(httpClient))
 }
 
 // Info returns basic information about the YouTube provider
@@ -59,12 +94,7 @@ func (a *Adapter) ExchangeAuthCode(ctx context.Context, code string) (string, er
 
 // ListPlaylists fetches the user's existing YouTube playlists.
 func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
-	token := &oauth2.Token{
-		AccessToken: authToken,
-		TokenType:   "Bearer",
-	}
-	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	service, err := yt.NewService(ctx, option.WithHTTPClient(httpClient))
+	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
@@ -88,17 +118,8 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 }
 
 // SavePlaylist takes a CanonicalPlaylist and creates it on the user's YouTube account.
-// It uses TrackMatcher to find the corresponding YouTube Video IDs for each track before adding them.
-// Note: This requires an authToken with the "https://www.googleapis.com/auth/youtube" scope.
 func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error) {
-	token := &oauth2.Token{
-		AccessToken: authToken,
-		TokenType:   "Bearer",
-	}
-	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-
-	// Initialize the YouTube API client
-	service, err := yt.NewService(ctx, option.WithHTTPClient(httpClient))
+	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
@@ -187,15 +208,15 @@ func (a *Adapter) SavePlaylist(ctx context.Context, playlist *converterv1.Canoni
 	return playlistURL, failedTracks, nil
 }
 
+// BuildSearchQuery constructs the YouTube search query for a given track.
+// Exported for testing.
+func BuildSearchQuery(track *converterv1.CanonicalTrack) string {
+	return fmt.Sprintf("%s %s official audio", track.Title, track.Artist)
+}
+
 // matchTrack implements a rudimentary TrackMatcher specifically for the YouTube API context.
 func (a *Adapter) matchTrack(service *yt.Service, track *converterv1.CanonicalTrack) (string, error) {
-	// YouTube search is very text-dependent. The best format is usually "Title Artist"
-	searchQuery := fmt.Sprintf("%s %s", track.Title, track.Artist)
-
-	// In YouTube Music, songs are technically just videos with an "Official Audio" or specific metadata categorization.
-	// Since we are using the generic YouTube v3 API, we search for videos.
-	// To improve accuracy for music, we could append "official audio" or "topic"
-	searchQuery += " official audio"
+	searchQuery := BuildSearchQuery(track)
 
 	call := service.Search.List([]string{"id", "snippet"}).
 		Q(searchQuery).
