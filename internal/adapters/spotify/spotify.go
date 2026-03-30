@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
+	"github.com/debalin/portify/internal/adapters/common"
 	"github.com/debalin/portify/internal/domain"
 	sp "github.com/zmb3/spotify/v2"
 	"golang.org/x/oauth2"
@@ -14,7 +14,7 @@ import (
 
 // Adapter implements domain.PlaylistSource for Spotify
 type Adapter struct {
-	httpClient *http.Client // If set, used instead of creating from token (for testing)
+	common.BaseAdapter
 }
 
 // Option configures an Adapter.
@@ -23,29 +23,30 @@ type Option func(*Adapter)
 // WithHTTPClient injects a custom HTTP client (used for testing).
 func WithHTTPClient(c *http.Client) Option {
 	return func(a *Adapter) {
-		a.httpClient = c
+		a.HTTPClient = c
 	}
 }
 
 // NewAdapter creates a new Spotify adapter instance
 func NewAdapter(opts ...Option) *Adapter {
-	a := &Adapter{}
+	a := &Adapter{
+		BaseAdapter: common.BaseAdapter{
+			OAuthCfg: common.OAuthConfig{
+				ProviderID:   "spotify",
+				ClientIDEnv:  "SPOTIFY_ID",
+				ClientSecEnv: "SPOTIFY_SECRET",
+				Scopes:       []string{"playlist-read-private", "playlist-read-collaborative", "playlist-modify-private", "playlist-modify-public"},
+				Endpoint: oauth2.Endpoint{
+					AuthURL:  "https://accounts.spotify.com/authorize",
+					TokenURL: "https://accounts.spotify.com/api/token",
+				},
+			},
+		},
+	}
 	for _, opt := range opts {
 		opt(a)
 	}
 	return a
-}
-
-// getClient returns the injected HTTP client or creates one from the auth token.
-func (a *Adapter) getClient(ctx context.Context, authToken string) *http.Client {
-	if a.httpClient != nil {
-		return a.httpClient
-	}
-	token := &oauth2.Token{
-		AccessToken: authToken,
-		TokenType:   "Bearer",
-	}
-	return oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
 }
 
 // Info returns basic information about the Spotify provider
@@ -57,38 +58,8 @@ func (a *Adapter) Info() domain.ProviderInfo {
 	}
 }
 
-func getSpotifyOAuthConfig() *oauth2.Config {
-	redirectURL := os.Getenv("FRONTEND_URL")
-	if redirectURL == "" {
-		redirectURL = "http://localhost:5175/"
-	}
-
-	return &oauth2.Config{
-		ClientID:     os.Getenv("SPOTIFY_ID"),
-		ClientSecret: os.Getenv("SPOTIFY_SECRET"),
-		RedirectURL:  redirectURL,
-		Scopes:       []string{"playlist-read-private", "playlist-read-collaborative", "playlist-modify-private", "playlist-modify-public"},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://accounts.spotify.com/authorize",
-			TokenURL: "https://accounts.spotify.com/api/token",
-		},
-	}
-}
-
-func (a *Adapter) GetAuthURL() string {
-	return getSpotifyOAuthConfig().AuthCodeURL("spotify", oauth2.AccessTypeOffline)
-}
-
-func (a *Adapter) ExchangeAuthCode(ctx context.Context, code string) (string, error) {
-	token, err := getSpotifyOAuthConfig().Exchange(ctx, code)
-	if err != nil {
-		return "", err
-	}
-	return token.AccessToken, nil
-}
-
 func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
-	httpClient := a.getClient(ctx, authToken)
+	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
 	page, err := client.CurrentUsersPlaylists(ctx)
@@ -109,7 +80,7 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 
 // FetchPlaylist fetches a complete playlist from Spotify and maps it to the generic CanonicalPlaylist
 func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
-	httpClient := a.getClient(ctx, authToken)
+	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
 	// Fetch basic playlist details (name, description, etc.)

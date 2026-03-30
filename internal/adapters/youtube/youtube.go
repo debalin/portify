@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
+	"github.com/debalin/portify/internal/adapters/common"
 	"github.com/debalin/portify/internal/domain"
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	yt "google.golang.org/api/youtube/v3"
@@ -16,8 +15,8 @@ import (
 
 // Adapter implements domain.PlaylistSink for YouTube
 type Adapter struct {
-	httpClient *http.Client // If set, used instead of creating from token (for testing)
-	baseURL    string       // If set, overrides the YouTube API base URL (for testing)
+	common.BaseAdapter
+	baseURL string // If set, overrides the YouTube API base URL (for testing)
 }
 
 // Option configures an Adapter.
@@ -26,7 +25,7 @@ type Option func(*Adapter)
 // WithHTTPClient injects a custom HTTP client (used for testing).
 func WithHTTPClient(c *http.Client) Option {
 	return func(a *Adapter) {
-		a.httpClient = c
+		a.HTTPClient = c
 	}
 }
 
@@ -39,28 +38,26 @@ func WithBaseURL(url string) Option {
 
 // NewAdapter creates a new YouTube adapter instance
 func NewAdapter(opts ...Option) *Adapter {
-	a := &Adapter{}
+	a := &Adapter{
+		BaseAdapter: common.BaseAdapter{
+			OAuthCfg: common.OAuthConfig{
+				ProviderID:   "youtube",
+				ClientIDEnv:  "YOUTUBE_ID",
+				ClientSecEnv: "YOUTUBE_SECRET",
+				Scopes:       []string{yt.YoutubeScope},
+				Endpoint:     google.Endpoint,
+			},
+		},
+	}
 	for _, opt := range opts {
 		opt(a)
 	}
 	return a
 }
 
-// getClient returns the injected HTTP client or creates one from the auth token.
-func (a *Adapter) getClient(ctx context.Context, authToken string) *http.Client {
-	if a.httpClient != nil {
-		return a.httpClient
-	}
-	token := &oauth2.Token{
-		AccessToken: authToken,
-		TokenType:   "Bearer",
-	}
-	return oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-}
-
 // newService creates a YouTube API service, using the injected client if available.
 func (a *Adapter) newService(ctx context.Context, authToken string) (*yt.Service, error) {
-	httpClient := a.getClient(ctx, authToken)
+	httpClient := a.GetHTTPClient(ctx, authToken)
 	service, err := yt.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, err
@@ -78,33 +75,6 @@ func (a *Adapter) Info() domain.ProviderInfo {
 		Name:        "YouTube Music",
 		AuthURLHint: a.GetAuthURL(),
 	}
-}
-
-func getYouTubeOAuthConfig() *oauth2.Config {
-	redirectURL := os.Getenv("FRONTEND_URL")
-	if redirectURL == "" {
-		redirectURL = "http://localhost:5175/"
-	}
-
-	return &oauth2.Config{
-		ClientID:     os.Getenv("YOUTUBE_ID"),
-		ClientSecret: os.Getenv("YOUTUBE_SECRET"),
-		RedirectURL:  redirectURL,
-		Scopes:       []string{yt.YoutubeScope},
-		Endpoint:     google.Endpoint,
-	}
-}
-
-func (a *Adapter) GetAuthURL() string {
-	return getYouTubeOAuthConfig().AuthCodeURL("youtube", oauth2.AccessTypeOffline)
-}
-
-func (a *Adapter) ExchangeAuthCode(ctx context.Context, code string) (string, error) {
-	token, err := getYouTubeOAuthConfig().Exchange(ctx, code)
-	if err != nil {
-		return "", err
-	}
-	return token.AccessToken, nil
 }
 
 // ListPlaylists fetches the user's existing YouTube playlists.
@@ -247,8 +217,5 @@ func (a *Adapter) matchTrack(service *yt.Service, track *converterv1.CanonicalTr
 		return "", nil // No match found
 	}
 
-	// For a production app, we would inspect the snippet.Title and snippet.ChannelTitle
-	// here to find the closest Levenshtein distance match.
-	// For this MVP, we will trust Google's search algorithm and return the top match.
 	return response.Items[0].Id.VideoId, nil
 }

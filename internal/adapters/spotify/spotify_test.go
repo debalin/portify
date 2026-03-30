@@ -34,15 +34,15 @@ func TestNewAdapter(t *testing.T) {
 	if a == nil {
 		t.Fatal("Expected non-nil adapter")
 	}
-	if a.httpClient != nil {
-		t.Error("Expected nil httpClient by default")
+	if a.HTTPClient != nil {
+		t.Error("Expected nil HTTPClient by default")
 	}
 }
 
 func TestNewAdapterWithHTTPClient(t *testing.T) {
 	c := &http.Client{}
 	a := NewAdapter(WithHTTPClient(c))
-	if a.httpClient != c {
+	if a.HTTPClient != c {
 		t.Error("Expected injected HTTP client")
 	}
 }
@@ -292,7 +292,7 @@ func TestFetchPlaylist_TrackWithNoArtist(t *testing.T) {
 func TestGetClient_WithInjected(t *testing.T) {
 	injected := &http.Client{}
 	a := NewAdapter(WithHTTPClient(injected))
-	got := a.getClient(context.Background(), "any-token")
+	got := a.GetHTTPClient(context.Background(), "any-token")
 	if got != injected {
 		t.Error("Expected injected client to be returned")
 	}
@@ -300,7 +300,7 @@ func TestGetClient_WithInjected(t *testing.T) {
 
 func TestGetClient_WithoutInjected(t *testing.T) {
 	a := NewAdapter()
-	got := a.getClient(context.Background(), "test-token")
+	got := a.GetHTTPClient(context.Background(), "test-token")
 	if got == nil {
 		t.Error("Expected non-nil client")
 	}
