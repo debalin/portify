@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
 	"github.com/debalin/portify/gen/go/converter/v1/converterv1connect"
+	"github.com/debalin/portify/internal/adapters/mock"
 	"github.com/debalin/portify/internal/adapters/spotify"
 	"github.com/debalin/portify/internal/adapters/youtube"
 	"github.com/debalin/portify/internal/domain"
@@ -27,9 +29,15 @@ func main() {
 	// 0. Initialize the Provider Registry
 	registry := domain.NewProviderRegistry()
 
-	// Register Real Providers
-	registry.RegisterSource(spotify.NewAdapter())
-	registry.RegisterDestination(youtube.NewAdapter())
+	// Register Providers
+	if os.Getenv("PORTIFY_MOCK_MODE") == "true" {
+		log.Println("⚠️  WARNING: Starting server in MOCK MODE (PORTIFY_MOCK_MODE=true)")
+		registry.RegisterSource(&mock.MockSourceWithTracks{})
+		registry.RegisterDestination(&mock.MockDestination{})
+	} else {
+		registry.RegisterSource(spotify.NewAdapter())
+		registry.RegisterDestination(youtube.NewAdapter())
+	}
 
 	// 1. Create our server logic
 	converterHelper := server.NewConverterServer(registry)
@@ -38,6 +46,12 @@ func main() {
 	// The generated code gives us a valid path and handler.
 	path, handler := converterv1connect.NewConverterServiceHandler(converterHelper)
 	mux.Handle(path, handler)
+
+	// Add a simple healthcheck endpoint for testing/orchestration tools like Playwright
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 
 	log.Printf("Bount handler on path: %s", path)
 

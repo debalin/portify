@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"time"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/domain"
@@ -74,6 +75,8 @@ func (d *MockDestination) MatchTrack(ctx context.Context, track *converterv1.Can
 }
 
 func (d *MockDestination) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	// Artificially delay so progress bars can be tested in E2E
+	time.Sleep(300 * time.Millisecond)
 	return nil
 }
 
