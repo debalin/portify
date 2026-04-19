@@ -412,8 +412,7 @@ function App() {
           Current tokens state: {JSON.stringify(tokens)} <br />
           Session Storage tokens: {sessionStorage.getItem('portifyAuthTokens')} <br />
           Selected Source: {selectedSource} | Selected Dest: {selectedDest} <br />
-          URL params: {window.location.search} <br />
-          authLatch: {String(authLatch.current)}
+          URL params: {window.location.search}
         </div>
       )}
     </div>
