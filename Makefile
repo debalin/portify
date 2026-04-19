@@ -6,13 +6,19 @@ setup:
 
 all: format lint test build
 
-# Run both backend and frontend with a single command.
-# The Go server is backgrounded; Ctrl+C kills both processes.
+ifeq ($(OS),Windows_NT)
+# Run both backend and frontend on Windows using PowerShell.
+dev:
+	@echo "=> Starting Portify (backend + frontend) on Windows..."
+	@powershell -ExecutionPolicy Bypass -NoProfile -Command "Start-Process go -ArgumentList 'run ./cmd/server'; cd frontend; npm run dev"
+else
+# Run both backend and frontend on Unix. The Go server is backgrounded; Ctrl+C kills both processes.
 dev:
 	@echo "=> Starting Portify (backend + frontend)..."
 	@trap 'kill %1 2>/dev/null; exit' INT TERM; \
 	go run ./cmd/server & \
 	cd frontend && npm run dev
+endif
 
 dev-backend:
 	@echo "=> Starting Go backend server..."
