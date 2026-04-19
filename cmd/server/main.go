@@ -62,8 +62,11 @@ func main() {
 
 	// 4. Start the Server
 	// We use h2c to allow HTTP/2 over cleartext (no TLS) which is great for local dev.
-	port := 8080
-	addr := fmt.Sprintf("localhost:%d", port)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := fmt.Sprintf("0.0.0.0:%s", port)
 	log.Printf("Server listening on http://%s", addr)
 
 	err := http.ListenAndServe(
