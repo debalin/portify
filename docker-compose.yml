@@ -9,9 +9,9 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-      # Use .env file variables if present. We fallback to turning on Mock Mode
-      # so the app starts even without valid API keys.
-      - PORTIFY_MOCK_MODE=${PORTIFY_MOCK_MODE:-true}
+      # Use .env file variables if present. We default Mock Mode to false for staging/prod.
+      - PORTIFY_MOCK_MODE=${PORTIFY_MOCK_MODE:-false}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       - SPOTIFY_ID=${SPOTIFY_ID:-}
       - SPOTIFY_SECRET=${SPOTIFY_SECRET:-}
       - YOUTUBE_ID=${YOUTUBE_ID:-}
