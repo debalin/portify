@@ -120,7 +120,7 @@ Generate Go server stubs and TypeScript ConnectRPC client code from `.proto` def
 buf generate
 ```
 
-### 3. Run the App
+### 3. Run the App Locally
 
 Start both the Go backend and React frontend with a single command:
 
@@ -128,9 +128,23 @@ Start both the Go backend and React frontend with a single command:
 make dev
 ```
 
-This launches the ConnectRPC server on `http://localhost:8080` and the Vite dev server on `http://127.0.0.1:5175` concurrently. Vite proxies all `/converter.v1.ConverterService/*` requests to the Go backend automatically. Press `Ctrl+C` to stop both.
+This launches the ConnectRPC server on `http://localhost:8080` and the Vite dev server on `http://127.0.0.1:5175` concurrently. Vite proxies all `/converter.v1.ConverterService/*` requests to the Go backend automatically. Press `Ctrl+C` to stop both. You do *not* need Docker or Cloudflare for basic local development!
 
 You can also start them individually with `make dev-backend` or `make dev-frontend`.
+
+### 4. Staging Deployment (Docker + Cloudflare)
+
+We utilize a headless server to host Portify's containerized infrastructure securely on the public internet.
+
+*   **URL:** [https://staging-portify.debalin.dev](https://staging-portify.debalin.dev)
+*   **Infrastructure:** A local Ubuntu server running `docker-compose`. Nginx acts as a reverse proxy serving the compiled React frontend on port 80 and piping all API requests to the isolated Go backend container, completely resolving CORS cross-origin concerns natively.
+*   **Networking:** Instead of exposing local server ports to the web, `cloudflared` runs as a sidecar container, creating a secure Zero Trust tunnel from the internal Docker network out to the public internet, providing fully-managed HTTPS out of the box.
+
+To spin up the staging environment on your host machine:
+```bash
+docker compose up --build -d
+```
+*(Ensure your `CLOUDFLARE_TUNNEL_TOKEN` and `FRONTEND_URL` are set inside `.env` first!)*
 
 ## 🧪 Testing & Quality
 
