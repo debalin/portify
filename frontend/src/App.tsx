@@ -169,7 +169,7 @@ function App() {
       const res = await apiClient.getAuthURL({ providerId })
       if (res.authUrl) {
          // Optionally append state if the backend doesn't do it automatically
-         const finalUrl = new URL(res.authUrl)
+         const finalUrl = new URL(res.authUrl, window.location.href)
          finalUrl.searchParams.set('state', providerId)
          window.location.href = finalUrl.toString()
       }
