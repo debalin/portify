@@ -262,6 +262,16 @@ function App() {
         <div className="provider-section">
           {/* Source Box */}
           <div className="provider-box source">
+            {tokens[selectedSource] && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setRefreshSource(r => r+1) }}
+                className="refresh-corner-btn"
+                disabled={isFetchingSource}
+                title="Refresh Playlists"
+              >
+                <RefreshCcw size={16} className={isFetchingSource ? "spinner" : ""} />
+              </button>
+            )}
             <Music className="provider-icon spotify" />
             
             <select 
@@ -280,21 +290,10 @@ function App() {
               </button>
             ) : (
               <div className="playlist-picker">
-                 <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
-                   <select value={sourcePlaylistId} onChange={e => setSourcePlaylistId(e.target.value)} className="provider-select inner" style={{flex: 1}} disabled={isFetchingSource}>
-                      {isFetchingSource ? <option value="">Fetching Playlists...</option> : <option value="" disabled>Select a playlist...</option>}
-                      {sourcePlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                   </select>
-                   <button 
-                     onClick={() => setRefreshSource(r => r+1)} 
-                     className="login-btn" 
-                     style={{margin: 0, padding: '8px', minWidth: 'auto', flex: '0 0 auto', background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)'}}
-                     title="Refresh Playlists"
-                     disabled={isFetchingSource}
-                   >
-                     <RefreshCcw size={16} className={isFetchingSource ? "spinner" : ""} color="white" />
-                   </button>
-                 </div>
+                 <select value={sourcePlaylistId} onChange={e => setSourcePlaylistId(e.target.value)} className="provider-select inner" disabled={isFetchingSource}>
+                    {isFetchingSource ? <option value="">Fetching Playlists...</option> : <option value="" disabled>Select a playlist...</option>}
+                    {sourcePlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                 </select>
               </div>
             )}
             
@@ -306,6 +305,16 @@ function App() {
 
           {/* Destination Box */}
           <div className="provider-box destination">
+            {tokens[selectedDest] && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setRefreshDest(r => r+1) }}
+                className="refresh-corner-btn"
+                disabled={isFetchingDest}
+                title="Refresh Playlists"
+              >
+                <RefreshCcw size={16} className={isFetchingDest ? "spinner" : ""} />
+              </button>
+            )}
             <Youtube className="provider-icon youtube" />
             
             <select 
@@ -324,21 +333,10 @@ function App() {
               </button>
             ) : (
               <div className="playlist-picker">
-                 <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
-                   <select value={destPlaylistId} onChange={e => setDestPlaylistId(e.target.value)} className="provider-select inner" style={{flex: 1}} disabled={isFetchingDest}>
-                      {isFetchingDest ? <option value="">Fetching Playlists...</option> : <option value="">✨ Create New Playlist</option>}
-                      {destPlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                   </select>
-                   <button 
-                     onClick={() => setRefreshDest(r => r+1)} 
-                     className="login-btn" 
-                     style={{margin: 0, padding: '8px', minWidth: 'auto', flex: '0 0 auto', background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)'}}
-                     title="Refresh Playlists"
-                     disabled={isFetchingDest}
-                   >
-                     <RefreshCcw size={16} className={isFetchingDest ? "spinner" : ""} color="white" />
-                   </button>
-                 </div>
+                 <select value={destPlaylistId} onChange={e => setDestPlaylistId(e.target.value)} className="provider-select inner" disabled={isFetchingDest}>
+                    {isFetchingDest ? <option value="">Fetching Playlists...</option> : <option value="">✨ Create New Playlist</option>}
+                    {destPlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                 </select>
               </div>
             )}
             
