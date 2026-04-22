@@ -105,19 +105,19 @@
 }
 
 .provider-icon {
-  font-size: 3.5rem;
+  font-size: 3rem;
   margin-bottom: 1.5rem;
   display: inline-block;
 }
 
 .provider-icon.spotify {
   color: var(--spotify-color);
-  text-shadow: 0 0 20px rgba(29, 185, 84, 0.5);
+  filter: drop-shadow(0 0 10px rgba(29, 185, 84, 0.5));
 }
 
 .provider-icon.youtube {
   color: var(--youtube-color);
-  text-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+  filter: drop-shadow(0 0 10px rgba(255, 0, 0, 0.5));
 }
 
 .provider-name {
