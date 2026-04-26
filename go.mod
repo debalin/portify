@@ -3,7 +3,7 @@ module github.com/debalin/portify
 go 1.25.0
 
 require (
-	connectrpc.com/connect v1.19.1
+	connectrpc.com/connect v1.19.2
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/cors v1.11.1
 	github.com/zmb3/spotify/v2 v2.4.3
