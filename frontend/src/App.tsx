@@ -150,7 +150,6 @@ function App() {
         }
       } catch(err: any) {
         console.error("Failed to fetch playlists (likely network flake or token expired)", err)
-        alert("API Error: " + (err.message || err) + "\n\n(Auto-logging out)")
         setTokens(prev => {
            const next = { ...prev }
            delete next[selectedSource]
