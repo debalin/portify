@@ -109,3 +109,15 @@ jobs:
     - name: Run E2E Tests
       working-directory: ./frontend
       run: npm run test:e2e
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [backend-test, frontend-test, e2e-test]
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Pull and Deploy
+        run: |
+          cd ~/portify
+          git pull origin master
+          docker compose up --build -d
