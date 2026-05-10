@@ -131,9 +131,7 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 			artist := item.Snippet.VideoOwnerChannelTitle
 
 			// Remove " - Topic" from YouTube Music generated channels
-			if strings.HasSuffix(artist, " - Topic") {
-				artist = strings.TrimSuffix(artist, " - Topic")
-			}
+			artist = strings.TrimSuffix(artist, " - Topic")
 
 			// Try to parse "Artist - Title" from the video title
 			parts := strings.SplitN(title, " - ", 2)

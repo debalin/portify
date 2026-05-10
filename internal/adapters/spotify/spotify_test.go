@@ -317,6 +317,36 @@ func TestCreatePlaylist_Success(t *testing.T) {
 	}
 }
 
+func TestCreatePlaylist_UserError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	_, err := a.CreatePlaylist(context.Background(), "Name", "Desc", "token")
+	if err == nil {
+		t.Fatal("Expected error on /v1/me failure")
+	}
+}
+
+func TestCreatePlaylist_CreateError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/me" {
+			json.NewEncoder(w).Encode(map[string]any{"id": "user123"})
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	_, err := a.CreatePlaylist(context.Background(), "Name", "Desc", "token")
+	if err == nil {
+		t.Fatal("Expected error on playlist creation failure")
+	}
+}
+
 // --- MatchTrack Tests ---
 
 func TestMatchTrack_Success(t *testing.T) {
@@ -347,6 +377,47 @@ func TestMatchTrack_Success(t *testing.T) {
 	}
 }
 
+func TestMatchTrack_FallbackSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q := r.URL.Query().Get("q")
+		if q == "track:Title artist:Artist" {
+			json.NewEncoder(w).Encode(map[string]any{"tracks": map[string]any{"items": []any{}}})
+			return
+		}
+		if q == "track:Title" {
+			json.NewEncoder(w).Encode(map[string]any{"tracks": map[string]any{"items": []map[string]any{{"id": "fallback123"}}}})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	track := &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}
+	id, err := a.MatchTrack(context.Background(), track, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack error: %v", err)
+	}
+	if id != "fallback123" {
+		t.Errorf("expected 'fallback123', got '%s'", id)
+	}
+}
+
+func TestMatchTrack_SearchError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	track := &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}
+	_, err := a.MatchTrack(context.Background(), track, "token")
+	if err == nil {
+		t.Fatal("Expected error on /v1/search failure")
+	}
+}
+
 // --- AddTrackToPlaylist Tests ---
 
 func TestAddTrackToPlaylist_Success(t *testing.T) {
@@ -364,6 +435,19 @@ func TestAddTrackToPlaylist_Success(t *testing.T) {
 	err := a.AddTrackToPlaylist(context.Background(), "pl123", "track123", "token")
 	if err != nil {
 		t.Fatalf("AddTrackToPlaylist error: %v", err)
+	}
+}
+
+func TestAddTrackToPlaylist_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	err := a.AddTrackToPlaylist(context.Background(), "pl123", "track123", "token")
+	if err == nil {
+		t.Fatal("Expected error on add tracks failure")
 	}
 }
 

@@ -380,6 +380,76 @@ func TestFetchPlaylist_Success(t *testing.T) {
 	}
 }
 
+func TestFetchPlaylist_PaginationAndParsing(t *testing.T) {
+	reqCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlists") && r.Method == "GET" {
+			json.NewEncoder(w).Encode(map[string]any{"items": []map[string]any{{"snippet": map[string]any{"title": "My YT Playlist", "description": "Desc"}}}})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlistItems") && r.Method == "GET" {
+			reqCount++
+			if reqCount == 1 {
+				json.NewEncoder(w).Encode(map[string]any{
+					"nextPageToken": "page2",
+					"items": []map[string]any{
+						{"snippet": map[string]any{"title": "Private video"}},
+						{"snippet": map[string]any{"title": "Deleted video"}},
+						{"snippet": map[string]any{"title": "Real Title", "videoOwnerChannelTitle": "Real Artist - Topic"}},
+					},
+				})
+				return
+			} else {
+				json.NewEncoder(w).Encode(map[string]any{
+					"items": []map[string]any{
+						{"snippet": map[string]any{"title": "Just Title", "videoOwnerChannelTitle": "Just Channel"}},
+					},
+				})
+				return
+			}
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	playlist, err := a.FetchPlaylist(context.Background(), "PL123", "token")
+	if err != nil {
+		t.Fatalf("FetchPlaylist returned error: %v", err)
+	}
+	if len(playlist.Tracks) != 2 {
+		t.Fatalf("expected 2 tracks (skipping private/deleted), got %d", len(playlist.Tracks))
+	}
+	if playlist.Tracks[0].Title != "Real Title" || playlist.Tracks[0].Artist != "Real Artist" {
+		t.Errorf("expected 'Real Title' and 'Real Artist', got '%s' and '%s'", playlist.Tracks[0].Title, playlist.Tracks[0].Artist)
+	}
+	if playlist.Tracks[1].Title != "Just Title" || playlist.Tracks[1].Artist != "Just Channel" {
+		t.Errorf("expected 'Just Title' and 'Just Channel', got '%s' and '%s'", playlist.Tracks[1].Title, playlist.Tracks[1].Artist)
+	}
+}
+
+func TestFetchPlaylist_ItemsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlists") {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"items": []map[string]any{{"snippet": map[string]any{"title": "My YT Playlist"}}}})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlistItems") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	_, err := a.FetchPlaylist(context.Background(), "PL123", "token")
+	if err == nil {
+		t.Fatal("Expected error on playlist items failure")
+	}
+}
+
 // --- getClient Tests ---
 
 func TestGetClient_WithInjected(t *testing.T) {
