@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/adapters/common"
 )
 
@@ -286,6 +287,94 @@ func TestFetchPlaylist_TrackWithNoArtist(t *testing.T) {
 	}
 	if playlist.Tracks[0].Isrc != "" {
 		t.Errorf("Expected empty ISRC, got '%s'", playlist.Tracks[0].Isrc)
+	}
+}
+
+// --- CreatePlaylist Tests ---
+
+func TestCreatePlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/me" {
+			json.NewEncoder(w).Encode(map[string]any{"id": "user123"})
+			return
+		}
+		if r.URL.Path == "/v1/users/user123/playlists" && r.Method == "POST" {
+			json.NewEncoder(w).Encode(map[string]any{"id": "new-playlist-id"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	id, err := a.CreatePlaylist(context.Background(), "Name", "Desc", "token")
+	if err != nil {
+		t.Fatalf("CreatePlaylist error: %v", err)
+	}
+	if id != "new-playlist-id" {
+		t.Errorf("expected 'new-playlist-id', got '%s'", id)
+	}
+}
+
+// --- MatchTrack Tests ---
+
+func TestMatchTrack_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/search" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"tracks": map[string]any{
+					"items": []map[string]any{
+						{"id": "track123"},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	track := &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}
+	id, err := a.MatchTrack(context.Background(), track, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack error: %v", err)
+	}
+	if id != "track123" {
+		t.Errorf("expected 'track123', got '%s'", id)
+	}
+}
+
+// --- AddTrackToPlaylist Tests ---
+
+func TestAddTrackToPlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/playlists/pl123/tracks" && r.Method == "POST" {
+			json.NewEncoder(w).Encode(map[string]any{"snapshot_id": "snap123"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	err := a.AddTrackToPlaylist(context.Background(), "pl123", "track123", "token")
+	if err != nil {
+		t.Fatalf("AddTrackToPlaylist error: %v", err)
+	}
+}
+
+// --- GetPlaylistURL Tests ---
+
+func TestGetPlaylistURL(t *testing.T) {
+	a := NewAdapter()
+	url := a.GetPlaylistURL("pl123")
+	expected := "https://open.spotify.com/playlist/pl123"
+	if url != expected {
+		t.Errorf("expected '%s', got '%s'", expected, url)
 	}
 }
 

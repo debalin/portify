@@ -3,6 +3,7 @@ package youtube
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/adapters/common"
@@ -79,6 +80,81 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 	}
 
 	return canonicals, nil
+}
+
+// FetchPlaylist retrieves a single playlist by ID, including ALL tracks with full metadata.
+func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
+	service, err := a.newService(ctx, authToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
+	}
+
+	// Fetch playlist metadata (Name, Description)
+	call := service.Playlists.List([]string{"snippet"}).Id(playlistID)
+	playlistRes, err := call.Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch playlist metadata: %w", err)
+	}
+	if len(playlistRes.Items) == 0 {
+		return nil, fmt.Errorf("playlist %s not found", playlistID)
+	}
+
+	canonical := &converterv1.CanonicalPlaylist{
+		Name:        playlistRes.Items[0].Snippet.Title,
+		Description: playlistRes.Items[0].Snippet.Description,
+		Tracks:      make([]*converterv1.CanonicalTrack, 0),
+	}
+
+	// Fetch all tracks with pagination
+	pageToken := ""
+	for {
+		itemsCall := service.PlaylistItems.List([]string{"snippet"}).
+			PlaylistId(playlistID).
+			MaxResults(50)
+
+		if pageToken != "" {
+			itemsCall = itemsCall.PageToken(pageToken)
+		}
+
+		res, err := itemsCall.Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch playlist items: %w", err)
+		}
+
+		for _, item := range res.Items {
+			// Skip deleted or private videos
+			if item.Snippet.Title == "Private video" || item.Snippet.Title == "Deleted video" {
+				continue
+			}
+
+			title := item.Snippet.Title
+			artist := item.Snippet.VideoOwnerChannelTitle
+
+			// Remove " - Topic" from YouTube Music generated channels
+			if strings.HasSuffix(artist, " - Topic") {
+				artist = strings.TrimSuffix(artist, " - Topic")
+			}
+
+			// Try to parse "Artist - Title" from the video title
+			parts := strings.SplitN(title, " - ", 2)
+			if len(parts) == 2 {
+				artist = strings.TrimSpace(parts[0])
+				title = strings.TrimSpace(parts[1])
+			}
+
+			canonical.Tracks = append(canonical.Tracks, &converterv1.CanonicalTrack{
+				Title:  title,
+				Artist: artist,
+			})
+		}
+
+		pageToken = res.NextPageToken
+		if pageToken == "" {
+			break
+		}
+	}
+
+	return canonical, nil
 }
 
 // CreatePlaylist creates a new, empty playlist on YouTube.

@@ -36,7 +36,9 @@ func main() {
 		registry.RegisterDestination(&mock.MockDestination{})
 	} else {
 		registry.RegisterSource(spotify.NewAdapter())
+		registry.RegisterSource(youtube.NewAdapter())
 		registry.RegisterDestination(youtube.NewAdapter())
+		registry.RegisterDestination(spotify.NewAdapter())
 	}
 
 	// 1. Create our server logic

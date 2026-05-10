@@ -127,3 +127,69 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 
 	return canonical, nil
 }
+
+// CreatePlaylist creates a new, empty playlist on Spotify.
+// Returns the platform-specific playlist ID.
+func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error) {
+	httpClient := a.GetHTTPClient(ctx, authToken)
+	client := sp.New(httpClient)
+
+	user, err := client.CurrentUser(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	spPlaylist, err := client.CreatePlaylistForUser(ctx, user.ID, name, description, false, false)
+	if err != nil {
+		return "", fmt.Errorf("failed to create playlist: %w", err)
+	}
+
+	return string(spPlaylist.ID), nil
+}
+
+// MatchTrack searches Spotify for a track matching the given canonical track.
+// Returns the platform-specific track ID, or empty string if no match was found.
+func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	httpClient := a.GetHTTPClient(ctx, authToken)
+	client := sp.New(httpClient)
+
+	query := fmt.Sprintf("track:%s artist:%s", track.Title, track.Artist)
+	results, err := client.Search(ctx, query, sp.SearchTypeTrack)
+	if err != nil {
+		return "", fmt.Errorf("failed to search track: %w", err)
+	}
+
+	if results.Tracks != nil && len(results.Tracks.Tracks) > 0 {
+		return string(results.Tracks.Tracks[0].ID), nil
+	}
+
+	// Fallback: search just by title if title+artist yields nothing
+	queryFallback := fmt.Sprintf("track:%s", track.Title)
+	resultsFallback, err := client.Search(ctx, queryFallback, sp.SearchTypeTrack)
+	if err != nil {
+		return "", fmt.Errorf("failed to search track: %w", err)
+	}
+
+	if resultsFallback.Tracks != nil && len(resultsFallback.Tracks.Tracks) > 0 {
+		return string(resultsFallback.Tracks.Tracks[0].ID), nil
+	}
+
+	return "", nil
+}
+
+// AddTrackToPlaylist inserts a single matched track into a playlist.
+func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	httpClient := a.GetHTTPClient(ctx, authToken)
+	client := sp.New(httpClient)
+
+	_, err := client.AddTracksToPlaylist(ctx, sp.ID(playlistID), sp.ID(trackID))
+	if err != nil {
+		return fmt.Errorf("failed to insert track %s into playlist: %w", trackID, err)
+	}
+	return nil
+}
+
+// GetPlaylistURL returns the user-facing URL for a playlist given its platform ID.
+func (a *Adapter) GetPlaylistURL(playlistID string) string {
+	return fmt.Sprintf("https://open.spotify.com/playlist/%s", playlistID)
+}

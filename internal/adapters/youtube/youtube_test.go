@@ -334,6 +334,52 @@ func TestGetPlaylistURL(t *testing.T) {
 	}
 }
 
+// --- FetchPlaylist Tests ---
+
+func TestFetchPlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlists") && r.Method == "GET" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{"snippet": map[string]any{"title": "My YT Playlist", "description": "Desc"}},
+				},
+			})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlistItems") && r.Method == "GET" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{"snippet": map[string]any{"title": "Artist - Title", "videoOwnerChannelTitle": "Artist - Topic"}},
+					{"snippet": map[string]any{"title": "Just A Title", "videoOwnerChannelTitle": "Some Channel"}},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	playlist, err := a.FetchPlaylist(context.Background(), "PL123", "token")
+	if err != nil {
+		t.Fatalf("FetchPlaylist returned error: %v", err)
+	}
+
+	if playlist.Name != "My YT Playlist" {
+		t.Errorf("expected Name 'My YT Playlist', got '%s'", playlist.Name)
+	}
+	if len(playlist.Tracks) != 2 {
+		t.Fatalf("expected 2 tracks, got %d", len(playlist.Tracks))
+	}
+	if playlist.Tracks[0].Title != "Title" || playlist.Tracks[0].Artist != "Artist" {
+		t.Errorf("expected 'Title' and 'Artist', got '%s' and '%s'", playlist.Tracks[0].Title, playlist.Tracks[0].Artist)
+	}
+	if playlist.Tracks[1].Title != "Just A Title" || playlist.Tracks[1].Artist != "Some Channel" {
+		t.Errorf("expected 'Just A Title' and 'Some Channel', got '%s' and '%s'", playlist.Tracks[1].Title, playlist.Tracks[1].Artist)
+	}
+}
+
 // --- getClient Tests ---
 
 func TestGetClient_WithInjected(t *testing.T) {
