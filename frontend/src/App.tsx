@@ -149,12 +149,13 @@ function App() {
            setSourcePlaylistId(activePlaylists[0].id)
         }
       } catch(err: any) {
-        console.error("Failed to fetch playlists (likely network flake or token expired)", err)
-        setTokens(prev => {
-           const next = { ...prev }
-           delete next[selectedSource]
-           return next
-        })
+        console.error("Failed to fetch playlists", err)
+        const msgLower = (err.message || err).toString().toLowerCase()
+        if (msgLower.includes('401') || msgLower.includes('expired') || msgLower.includes('credential') || msgLower.includes('unauthorized')) {
+            setTokens(prev => { const n = {...prev}; delete n[selectedSource]; return n })
+        } else {
+            alert("Failed to fetch playlists: " + (err.message || err))
+        }
       } finally {
         setIsFetchingSource(false)
       }
@@ -181,8 +182,10 @@ function App() {
       } catch(err: any) {
         console.error("Failed to fetch dest playlists", err)
         const msgLower = (err.message || err).toString().toLowerCase()
-        if (msgLower.includes('401') || msgLower.includes('expired') || msgLower.includes('invalid credential')) {
+        if (msgLower.includes('401') || msgLower.includes('expired') || msgLower.includes('credential') || msgLower.includes('unauthorized')) {
             setTokens(prev => { const n = {...prev}; delete n[selectedDest]; return n })
+        } else {
+            alert("Failed to fetch destination playlists: " + (err.message || err))
         }
       } finally {
         setIsFetchingDest(false)
