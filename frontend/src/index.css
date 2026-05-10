@@ -40,6 +40,14 @@ button {
   font-family: inherit;
   cursor: pointer;
 }
+/* Additions for App.tsx Dropdowns, Inputs, and Loading states */
+.provider-select { width: 100%; min-height: 44px; max-width: 100%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; padding: 0.75rem 2rem 0.75rem 0.75rem; margin-bottom: 0.5rem; background-color: rgba(15, 23, 42, 0.6); background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1.2rem; border: 1px solid var(--glass-border); color: white; border-radius: 8px; font-family: inherit; font-size: 1.1rem; text-align: center; text-align-last: center; -webkit-appearance: none; -moz-appearance: none; appearance: none; cursor: pointer; transition: all 0.2s; }
+.provider-select:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); }
+.provider-select option { background-color: var(--bg-secondary); color: white; padding: 10px; text-align: left; }
+.input-group { width: 100%; max-width: 600px; margin: 0 auto; }
+.playlist-input { width: 100%; padding: 1rem 1.5rem; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-family: inherit; font-size: 1.1rem; transition: all 0.3s ease; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+.playlist-input:focus { outline: none; border-color: var(--accent-primary); background: rgba(15, 23, 42, 0.6); box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
+.playlist-input::placeholder { color: var(--text-muted); }
 .result-card { width: 100%; max-width: 600px; margin: 0 auto; padding: 1.5rem; border-radius: 12px; display: flex; align-items: center; gap: 1.5rem; animation: scaleIn 0.3s ease-out; }
 .result-card.success { background: rgba(29, 185, 84, 0.1); border: 1px solid rgba(29, 185, 84, 0.3); }
 .result-card.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); }

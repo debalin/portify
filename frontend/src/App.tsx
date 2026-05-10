@@ -288,7 +288,7 @@ function App() {
       <main className="converter-card">
         <div className="provider-section">
           {/* Source Box */}
-          <div className="provider-box source">
+          <div className={`provider-box source ${selectedSource}`}>
             {tokens[selectedSource] && (
               <button 
                 onClick={(e) => { e.stopPropagation(); setRefreshSource(r => r+1) }}
@@ -331,7 +331,7 @@ function App() {
           <ArrowRightLeft className="exchange-icon" />
 
           {/* Destination Box */}
-          <div className="provider-box destination">
+          <div className={`provider-box destination ${selectedDest}`}>
             {tokens[selectedDest] && (
               <button 
                 onClick={(e) => { e.stopPropagation(); setRefreshDest(r => r+1) }}

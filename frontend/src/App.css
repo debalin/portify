@@ -100,11 +100,11 @@
   transition: height 0.3s ease;
 }
 
-.provider-box.source::before {
+.provider-box.spotify::before {
   background: var(--spotify-color);
 }
 
-.provider-box.destination::before {
+.provider-box.youtube::before {
   background: var(--youtube-color);
 }
 
