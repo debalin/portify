@@ -377,7 +377,7 @@ function App() {
             <div className="progress-header">
               <span className="progress-status">{progress.message}</span>
               {progress.total > 0 && (
-                <span className="progress-count">{Math.round((progress.converted / progress.total) * 100)}% ({progress.converted} / {progress.total})</span>
+                <span className="progress-count">{Math.round((progress.converted / progress.total) * 100)}%</span>
               )}
             </div>
             {progress.total > 0 && (
