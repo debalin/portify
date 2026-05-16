@@ -27,9 +27,16 @@ const SpotifyIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
+const TidalIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12.01 5.334L8.683 2 5.341 5.334l3.327 3.322 3.342-3.322zM8.683 8.656L5.341 12l3.342 3.333 3.327-3.333-3.327-3.344zM12.01 12l-3.327 3.333L12.01 18.667l3.342-3.334L12.01 12zM15.353 8.656L12.01 12l3.342 3.333L18.678 12l-3.325-3.344zM18.678 5.334L15.353 2 12.01 5.334l3.343 3.322 3.325-3.322z"/>
+  </svg>
+)
+
 const DynamicProviderIcon = ({ providerId, className }: { providerId: string, className?: string }) => {
   if (providerId === 'spotify') return <SpotifyIcon className={className} />
   if (providerId === 'youtube') return <YouTubeMusicIcon className={className} />
+  if (providerId === 'tidal') return <TidalIcon className={className} />
   return <DefaultMusicIcon className={className} />
 }
 

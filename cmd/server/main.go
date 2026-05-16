@@ -12,6 +12,7 @@ import (
 	"github.com/debalin/portify/gen/go/converter/v1/converterv1connect"
 	"github.com/debalin/portify/internal/adapters/mock"
 	"github.com/debalin/portify/internal/adapters/spotify"
+	"github.com/debalin/portify/internal/adapters/tidal"
 	"github.com/debalin/portify/internal/adapters/youtube"
 	"github.com/debalin/portify/internal/domain"
 	"github.com/debalin/portify/internal/server"
@@ -37,8 +38,10 @@ func main() {
 	} else {
 		registry.RegisterSource(spotify.NewAdapter())
 		registry.RegisterSource(youtube.NewAdapter())
+		registry.RegisterSource(tidal.NewAdapter())
 		registry.RegisterDestination(youtube.NewAdapter())
 		registry.RegisterDestination(spotify.NewAdapter())
+		registry.RegisterDestination(tidal.NewAdapter())
 	}
 
 	// 1. Create our server logic

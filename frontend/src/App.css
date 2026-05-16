@@ -108,6 +108,10 @@
   background: var(--youtube-color);
 }
 
+.provider-box.tidal::before {
+  background: var(--tidal-color);
+}
+
 .provider-box:hover {
   transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
@@ -132,6 +136,11 @@
 .provider-icon.youtube {
   color: var(--youtube-color);
   filter: drop-shadow(0 0 10px rgba(255, 0, 0, 0.5));
+}
+
+.provider-icon.tidal {
+  color: var(--tidal-color);
+  filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.5));
 }
 
 .provider-name {

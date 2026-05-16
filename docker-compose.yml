@@ -14,6 +14,8 @@ services:
       - SPOTIFY_SECRET=${SPOTIFY_SECRET:-}
       - YOUTUBE_ID=${YOUTUBE_ID:-}
       - YOUTUBE_SECRET=${YOUTUBE_SECRET:-}
+      - TIDAL_ID=${TIDAL_ID:-}
+      - TIDAL_SECRET=${TIDAL_SECRET:-}
 
   frontend:
     build:
