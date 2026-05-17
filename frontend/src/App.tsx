@@ -108,6 +108,10 @@ function App() {
       const code = params.get('code')
       const state = params.get('state') // We will pass providerId as state
 
+      if (window.location.href.includes('code=')) {
+        alert("Debug Callback! URL: " + window.location.href)
+      }
+
       if (code && state && !authLatch.current) {
         authLatch.current = true
         console.log("Starting code exchange for", state)
@@ -314,7 +318,10 @@ function App() {
             <select 
               className="provider-select"
               value={selectedSource} 
-              onChange={e => setSelectedSource(e.target.value)}
+              onChange={e => {
+                setSelectedSource(e.target.value);
+                setSourcePlaylistId(""); // Clear selected playlist when provider changes
+              }}
             >
               {sources.length > 0 ? sources.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
@@ -357,7 +364,10 @@ function App() {
             <select 
               className="provider-select"
               value={selectedDest} 
-              onChange={e => setSelectedDest(e.target.value)}
+              onChange={e => {
+                setSelectedDest(e.target.value);
+                setDestPlaylistId(""); // Clear selected playlist when provider changes
+              }}
             >
               {destinations.length > 0 ? destinations.map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
