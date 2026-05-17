@@ -237,3 +237,90 @@ func TestAddTrackToPlaylist(t *testing.T) {
 		t.Fatalf("AddTrackToPlaylist failed: %v", err)
 	}
 }
+
+// --- Error Tests for Coverage ---
+
+func errorMux(status int, body string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(status)
+		w.Write([]byte(body))
+	})
+}
+
+func TestErrors_APIError(t *testing.T) {
+	server := httptest.NewServer(errorMux(http.StatusBadRequest, `{"error":"bad request"}`))
+	defer server.Close()
+	a := newTestAdapter(server.URL)
+	ctx := context.Background()
+
+	_, err := a.ListPlaylists(ctx, "token")
+	if err == nil {
+		t.Error("ListPlaylists expected API error, got nil")
+	}
+
+	_, err = a.FetchPlaylist(ctx, "111", "token")
+	if err == nil {
+		t.Error("FetchPlaylist expected API error, got nil")
+	}
+
+	_, err = a.CreatePlaylist(ctx, "Name", "Desc", "token")
+	if err == nil {
+		t.Error("CreatePlaylist expected API error, got nil")
+	}
+
+	_, err = a.MatchTrack(ctx, &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}, "token")
+	if err == nil {
+		t.Error("MatchTrack expected API error, got nil")
+	}
+
+	err = a.AddTrackToPlaylist(ctx, "pid", "tid", "token")
+	if err == nil {
+		t.Error("AddTrackToPlaylist expected API error, got nil")
+	}
+}
+
+func TestErrors_JSONParse(t *testing.T) {
+	server := httptest.NewServer(errorMux(http.StatusOK, `invalid json`))
+	defer server.Close()
+	a := newTestAdapter(server.URL)
+	ctx := context.Background()
+
+	_, err := a.ListPlaylists(ctx, "token")
+	if err == nil {
+		t.Error("ListPlaylists expected JSON parse error, got nil")
+	}
+
+	_, err = a.FetchPlaylist(ctx, "111", "token")
+	if err == nil {
+		t.Error("FetchPlaylist expected JSON parse error, got nil")
+	}
+
+	_, err = a.CreatePlaylist(ctx, "Name", "Desc", "token")
+	if err == nil {
+		t.Error("CreatePlaylist expected JSON parse error, got nil")
+	}
+
+	_, err = a.MatchTrack(ctx, &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}, "token")
+	if err == nil {
+		t.Error("MatchTrack expected JSON parse error, got nil")
+	}
+}
+
+func TestAuthFlow(t *testing.T) {
+	a := NewAdapter()
+	url := a.GetAuthURL()
+	if !strings.Contains(url, "login.tidal.com") {
+		t.Errorf("Expected tidal login URL, got %s", url)
+	}
+
+	// ExchangeAuthCode failure (invalid token / mock endpoint missing)
+	server := httptest.NewServer(errorMux(http.StatusBadRequest, `{"error":"invalid_grant"}`))
+	defer server.Close()
+	a = newTestAdapter(server.URL)
+	a.OAuthCfg.Endpoint.TokenURL = server.URL // Override for test
+
+	_, err := a.ExchangeAuthCode(context.Background(), "dummy_code")
+	if err == nil {
+		t.Error("Expected ExchangeAuthCode error, got nil")
+	}
+}
