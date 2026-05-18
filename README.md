@@ -33,8 +33,8 @@
 ## 🎧 Supported Platforms
 
 Portify currently supports seamless conversion between the following music streaming platforms:
-- **Spotify**: Full support (Source)
-- **YouTube Music**: Full support (Destination)
+- **Spotify**: Full support (Source & Destination)
+- **YouTube Music**: Full support (Source & Destination)
 - **Tidal**: Full support (Source & Destination)
 
 *Note: More providers like Apple Music and Amazon Music are on the roadmap!*
