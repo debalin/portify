@@ -30,9 +30,9 @@
 - [x] **Tidal Adapter:** Full support for converting to and from Tidal via Open API v2.
 - [ ] **Additional Providers:** Apple Music, Amazon Music, SoundCloud, etc.
 
-## 🎧 Supported Providers
+## 🎧 Supported Platforms
 
-Portify currently supports seamless conversion between the following music streaming services:
+Portify currently supports seamless conversion between the following music streaming platforms:
 - **Spotify**: Full support (Source)
 - **YouTube Music**: Full support (Destination)
 - **Tidal**: Full support (Source & Destination)
