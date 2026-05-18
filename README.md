@@ -22,8 +22,8 @@
 ## 🚀 Current Status
 
 - [x] **Core Canonical Model:** Protobuf-based universal data structures for cross-platform track translation.
-- [x] **Spotify Adapter (Source):** Full support for fetching tracks from public and private Spotify playlists.
-- [x] **YouTube Adapter (Destination):** Algorithmic track matching and YouTube playlist generation.
+- [x] **Spotify Adapter:** Full bidirectional support for fetching tracks from Spotify and generating playlists.
+- [x] **YouTube Adapter:** Full bidirectional support for fetching tracks and generating YouTube playlists with algorithmic track matching.
 - [x] **React Frontend:** Web UI with OAuth login, provider selection, playlist browsing, and streaming conversion progress.
 - [x] **CI/CD Pipeline:** Automated GitHub Actions for linting, testing, and build verification on every push and PR.
 - [x] **Security Scanning:** CodeQL Advanced Security analysis and Dependabot dependency monitoring.
