@@ -27,7 +27,17 @@
 - [x] **React Frontend:** Web UI with OAuth login, provider selection, playlist browsing, and streaming conversion progress.
 - [x] **CI/CD Pipeline:** Automated GitHub Actions for linting, testing, and build verification on every push and PR.
 - [x] **Security Scanning:** CodeQL Advanced Security analysis and Dependabot dependency monitoring.
-- [ ] **Additional Providers:** Apple Music, Tidal, Amazon Music, etc.
+- [x] **Tidal Adapter:** Full support for converting to and from Tidal via Open API v2.
+- [ ] **Additional Providers:** Apple Music, Amazon Music, SoundCloud, etc.
+
+## 🎧 Supported Providers
+
+Portify currently supports seamless conversion between the following music streaming services:
+- **Spotify**: Full support (Source)
+- **YouTube Music**: Full support (Destination)
+- **Tidal**: Full support (Source & Destination)
+
+*Note: More providers like Apple Music and Amazon Music are on the roadmap!*
 
 ## 🛠️ Technology Stack
 

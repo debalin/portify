@@ -28,6 +28,45 @@
   font-size: 1.25rem;
   color: var(--text-muted);
   font-weight: 300;
+  margin-bottom: 1.5rem;
+}
+
+.supported-providers-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  opacity: 0.8;
+  animation: fadeInDown 1s ease-out;
+}
+
+.banner-icons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.banner-icon {
+  font-size: 1.25rem;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  filter: grayscale(100%);
+}
+
+.banner-icon:hover {
+  opacity: 1;
+  filter: grayscale(0%);
+  transform: translateY(-2px);
+}
+
+.banner-icon.spotify:hover { color: #1DB954; }
+.banner-icon.youtube:hover { color: #FF0000; }
+.banner-icon.tidal:hover { color: #000000; }
+/* Assuming a dark background for Tidal icon hover to stand out if on light theme, or white on dark theme */
+@media (prefers-color-scheme: dark) {
+  .banner-icon.tidal:hover { color: #FFFFFF; }
 }
 
 .converter-card {
