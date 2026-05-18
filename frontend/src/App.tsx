@@ -1,50 +1,14 @@
-import React, { useState, useEffect } from 'react'
-import { ArrowRightLeft, Loader2, CheckCircle, AlertCircle, LogIn, RefreshCcw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowRightLeft, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { apiClient } from './api'
+import { useOAuth } from './hooks/useOAuth'
+import { ProviderBox } from './components/ProviderBox'
+import { SpotifyIcon, YouTubeMusicIcon, TidalIcon } from './components/Icons'
 import type { ProviderInfo } from './gen/converter/v1/service_pb'
 import type { CanonicalPlaylist } from './gen/converter/v1/model_pb'
 import './App.css'
 
-const DefaultMusicIcon = ({ className, title }: { className?: string, title?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    {title && <title>{title}</title>}
-    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-  </svg>
-)
 
-const YouTubeMusicIcon = ({ className, title }: { className?: string, title?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {title && <title>{title}</title>}
-    <path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 19.104c-3.924 0-7.104-3.18-7.104-7.104S8.076 4.896 12 4.896s7.104 3.18 7.104 7.104-3.18 7.104-7.104 7.104zm0-13.332c-3.432 0-6.228 2.796-6.228 6.228S8.568 18.228 12 18.228s6.228-2.796 6.228-6.228S15.432 5.772 12 5.772zM9.684 15.54V8.46L15.816 12l-6.132 3.54z"/>
-  </svg>
-)
-
-const SpotifyIcon = ({ className, title }: { className?: string, title?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="1em" height="1em" 
-    viewBox="0 0 24 24" 
-    fill="currentColor" 
-    className={className}
-  >
-    {title && <title>{title}</title>}
-    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.54.659.3 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.6.18-1.2.72-1.38 4.2-1.26 11.28-1.02 15.72 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-  </svg>
-)
-
-const TidalIcon = ({ className, title }: { className?: string, title?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {title && <title>{title}</title>}
-    <path d="M12.01 5.334L8.683 2 5.341 5.334l3.327 3.322 3.342-3.322zM8.683 8.656L5.341 12l3.342 3.333 3.327-3.333-3.327-3.344zM12.01 12l-3.327 3.333L12.01 18.667l3.342-3.334L12.01 12zM15.353 8.656L12.01 12l3.342 3.333L18.678 12l-3.325-3.344zM18.678 5.334L15.353 2 12.01 5.334l3.343 3.322 3.325-3.322z"/>
-  </svg>
-)
-
-const DynamicProviderIcon = ({ providerId, className }: { providerId: string, className?: string }) => {
-  if (providerId === 'spotify') return <SpotifyIcon className={className} />
-  if (providerId === 'youtube') return <YouTubeMusicIcon className={className} />
-  if (providerId === 'tidal') return <TidalIcon className={className} />
-  return <DefaultMusicIcon className={className} />
-}
 
 function App() {
   const [sources, setSources] = useState<ProviderInfo[]>([])
@@ -72,23 +36,7 @@ function App() {
   // Storage wrappers for dest
   const setDestPlaylistId = (val: string) => { sessionStorage.setItem('portifyDestPlaylistId', val); setDestPlaylistIdState(val) }
 
-  // Auth state: providerId -> accessToken (Persisted in sessionStorage to survive OAuth redirects)
-  const [tokens, setTokensState] = useState<Record<string, string>>(() => {
-    const saved = sessionStorage.getItem('portifyAuthTokens')
-    return saved ? JSON.parse(saved) : {}
-  })
-
-  // Wrapper for setTokens to automatically save to sessionStorage
-  const setTokens = (value: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
-    setTokensState(prev => {
-      const next = typeof value === 'function' ? value(prev) : value
-      sessionStorage.setItem('portifyAuthTokens', JSON.stringify(next))
-      return next
-    })
-  }
-  
   const [isConverting, setIsConverting] = useState(false)
-  const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [result, setResult] = useState<{success: boolean, message: string, url?: string, failedTracks?: Array<any>} | null>(null)
 
   // Fetch registered providers on load
@@ -105,51 +53,13 @@ function App() {
     loadProviders()
   }, [])
 
-  const authLatch = React.useRef(false)
-
-  // Handle OAuth Redirect Callback
-  useEffect(() => {
-    const handleCallback = async () => {
-      const params = new URLSearchParams(window.location.search)
-      const code = params.get('code')
-      const state = params.get('state') // We will pass providerId as state
-
-      if (window.location.href.includes('code=')) {
-        alert("Debug Callback! URL: " + window.location.href)
-      }
-
-      if (code && state && !authLatch.current) {
-        authLatch.current = true
-        console.log("Starting code exchange for", state)
-        // Ensure browser address bar stops carrying the 1-time-use code
-        window.history.replaceState({}, document.title, window.location.pathname)
-        setIsAuthLoading(true)
-        try {
-          const res = await apiClient.exchangeAuthCode({
-            providerId: state,
-            code: code,
-          })
-          if (res.success) {
-            setTokens(prev => ({ ...prev, [state]: res.accessToken }))
-          } else {
-            console.error("Auth failed:", res.errorMessage)
-            alert("Authentication failed: " + res.errorMessage)
-          }
-        } catch (err: any) {
-          console.error("Code exchange error:", err)
-          alert("CRITICAL: Network Error during Code Exchange! " + (err.message || err))
-        } finally {
-          setIsAuthLoading(false)
-        }
-      }
-    }
-    handleCallback()
-  }, [])
+  const { tokens, setTokens, isAuthLoading, handleLogin } = useOAuth()
 
   // Fetch Playlists when Source Token or Provider changes
   useEffect(() => {
     const fetchPlaylists = async () => {
       const token = tokens[selectedSource]
+      console.log("DEBUG START FETCH SOURCE:", selectedSource, token)
       if (!token) {
         setSourcePlaylists([])
         return
@@ -161,11 +71,13 @@ function App() {
           accessToken: token
         })
         const activePlaylists = res.playlists || []
+        console.log("DEBUG SUCCESS:", activePlaylists)
         setSourcePlaylists(activePlaylists)
         if (activePlaylists.length > 0 && !sourcePlaylistId) {
            setSourcePlaylistId(activePlaylists[0].id)
         }
       } catch(err: any) {
+        console.error("DEBUG FETCH ERROR SOURCE:", err)
         console.error("Failed to fetch playlists", err)
         const msgLower = (err.message || err).toString().toLowerCase()
         if (msgLower.includes('401') || msgLower.includes('expired') || msgLower.includes('credential') || msgLower.includes('unauthorized')) {
@@ -211,20 +123,7 @@ function App() {
     fetchDestPlaylists()
   }, [selectedDest, tokens, refreshDest])
 
-  const handleLogin = async (providerId: string) => {
-    try {
-      const res = await apiClient.getAuthURL({ providerId })
-      if (res.authUrl) {
-         // Optionally append state if the backend doesn't do it automatically
-         const finalUrl = new URL(res.authUrl, window.location.href)
-         finalUrl.searchParams.set('state', providerId)
-         window.location.href = finalUrl.toString()
-      }
-    } catch(err) {
-      console.error("Failed to get auth URL", err)
-      alert("Failed to initiate login.")
-    }
-  }
+
 
   const [progress, setProgress] = useState<{status: number, message: string, converted: number, total: number} | null>(null)
 
@@ -315,94 +214,42 @@ function App() {
 
       <main className="converter-card">
         <div className="provider-section">
-          {/* Source Box */}
-          <div className={`provider-box source ${selectedSource}`}>
-            {tokens[selectedSource] && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); setRefreshSource(r => r+1) }}
-                className="refresh-corner-btn"
-                disabled={isFetchingSource}
-                title="Refresh Playlists"
-              >
-                <RefreshCcw size={16} className={isFetchingSource ? "spinner" : ""} />
-              </button>
-            )}
-            <DynamicProviderIcon providerId={selectedSource} className={`provider-icon ${selectedSource}`} />
-            
-            <select 
-              className="provider-select"
-              value={selectedSource} 
-              onChange={e => {
-                setSelectedSource(e.target.value);
-                setSourcePlaylistId(""); // Clear selected playlist when provider changes
-              }}
-            >
-              {sources.length > 0 ? sources.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              )) : <option value="spotify">Spotify</option>}
-            </select>
-
-            {!tokens[selectedSource] ? (
-              <button className="login-btn" onClick={() => handleLogin(selectedSource)}>
-                 <LogIn size={16} className="login-icon" /> Login to Connect
-              </button>
-            ) : (
-              <div className="playlist-picker">
-                 <select value={sourcePlaylistId} onChange={e => setSourcePlaylistId(e.target.value)} className="provider-select inner" disabled={isFetchingSource}>
-                    {isFetchingSource ? <option value="">Fetching Playlists...</option> : <option value="" disabled>Select a playlist...</option>}
-                    {sourcePlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                 </select>
-              </div>
-            )}
-            
-            <div className="provider-role">Source</div>
-          </div>
+          <ProviderBox
+            type="source"
+            providerId={selectedSource}
+            providers={sources}
+            onProviderChange={(id) => {
+              setSelectedSource(id)
+              setSourcePlaylistId("")
+            }}
+            playlistId={sourcePlaylistId}
+            onPlaylistChange={setSourcePlaylistId}
+            playlists={sourcePlaylists}
+            isFetching={isFetchingSource}
+            token={tokens[selectedSource]}
+            onRefresh={() => setRefreshSource(r => r + 1)}
+            onLogin={handleLogin}
+          />
 
           {/* Exchange Icon */}
           <ArrowRightLeft className="exchange-icon" />
 
-          {/* Destination Box */}
-          <div className={`provider-box destination ${selectedDest}`}>
-            {tokens[selectedDest] && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); setRefreshDest(r => r+1) }}
-                className="refresh-corner-btn"
-                disabled={isFetchingDest}
-                title="Refresh Playlists"
-              >
-                <RefreshCcw size={16} className={isFetchingDest ? "spinner" : ""} />
-              </button>
-            )}
-            <DynamicProviderIcon providerId={selectedDest} className={`provider-icon ${selectedDest}`} />
-            
-            <select 
-              className="provider-select"
-              value={selectedDest} 
-              onChange={e => {
-                setSelectedDest(e.target.value);
-                setDestPlaylistId(""); // Clear selected playlist when provider changes
-              }}
-            >
-              {destinations.length > 0 ? destinations.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              )) : <option value="youtube">YouTube Music</option>}
-            </select>
-
-            {!tokens[selectedDest] ? (
-              <button className="login-btn youtube-login" onClick={() => handleLogin(selectedDest)}>
-                 <LogIn size={16} className="login-icon" /> Login to Connect
-              </button>
-            ) : (
-              <div className="playlist-picker">
-                 <select value={destPlaylistId} onChange={e => setDestPlaylistId(e.target.value)} className="provider-select inner" disabled={isFetchingDest}>
-                    {isFetchingDest ? <option value="">Fetching Playlists...</option> : <option value="">✨ Create New Playlist</option>}
-                    {destPlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                 </select>
-              </div>
-            )}
-            
-            <div className="provider-role">Destination</div>
-          </div>
+          <ProviderBox
+            type="destination"
+            providerId={selectedDest}
+            providers={destinations}
+            onProviderChange={(id) => {
+              setSelectedDest(id)
+              setDestPlaylistId("")
+            }}
+            playlistId={destPlaylistId}
+            onPlaylistChange={setDestPlaylistId}
+            playlists={destPlaylists}
+            isFetching={isFetchingDest}
+            token={tokens[selectedDest]}
+            onRefresh={() => setRefreshDest(r => r + 1)}
+            onLogin={handleLogin}
+          />
         </div>
 
 
