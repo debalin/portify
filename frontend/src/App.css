@@ -63,11 +63,7 @@
 
 .banner-icon.spotify:hover { color: #1DB954; }
 .banner-icon.youtube:hover { color: #FF0000; }
-.banner-icon.tidal:hover { color: #000000; }
-/* Assuming a dark background for Tidal icon hover to stand out if on light theme, or white on dark theme */
-@media (prefers-color-scheme: dark) {
-  .banner-icon.tidal:hover { color: #FFFFFF; }
-}
+.banner-icon.tidal:hover { color: var(--tidal-color); }
 
 .converter-card {
   background: var(--glass-bg);
