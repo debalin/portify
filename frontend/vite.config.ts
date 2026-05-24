@@ -19,6 +19,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    pool: 'forks',
+    forks: {
+      singleFork: true,
+      execArgv: ['--max-old-space-size=8192'],
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
