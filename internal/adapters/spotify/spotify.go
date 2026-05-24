@@ -3,6 +3,8 @@ package spotify
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/adapters/common"
@@ -139,8 +141,26 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 		return "", fmt.Errorf("failed to get current user: %w", err)
 	}
 
+	// Spotify playlist name limit is 100 characters
+	if len(name) > 100 {
+		name = name[:100]
+	}
+	// Spotify playlist description must not contain newlines or carriage returns
+	description = strings.ReplaceAll(description, "\n", " ")
+	description = strings.ReplaceAll(description, "\r", " ")
+	for strings.Contains(description, "  ") {
+		description = strings.ReplaceAll(description, "  ", " ")
+	}
+	description = strings.TrimSpace(description)
+	// Spotify playlist description limit is 300 characters
+	if len(description) > 300 {
+		description = description[:300]
+	}
+
+	log.Printf("[Spotify] Creating playlist: name=%q, description=%q, userID=%q", name, description, user.ID)
 	spPlaylist, err := client.CreatePlaylistForUser(ctx, user.ID, name, description, false, false)
 	if err != nil {
+		log.Printf("[Spotify] CreatePlaylistForUser failed: %v", err)
 		return "", fmt.Errorf("failed to create playlist: %w", err)
 	}
 
