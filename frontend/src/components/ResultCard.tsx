@@ -50,13 +50,16 @@ export function ResultCard({ result, progress, destPlaylistId }: ResultCardProps
             <summary style={{ cursor: 'pointer', color: '#ff6b6b', fontWeight: 600 }}>
               Failed to compile {result.failedTracks.length} tracks
             </summary>
-            <ul style={{
-              marginTop: '8px',
-              paddingLeft: '20px',
-              maxHeight: '150px',
-              overflowY: 'auto',
-              color: '#ffaaaa'
-            }}>
+            <ul 
+              className="failed-tracks-list"
+              style={{
+                marginTop: '8px',
+                paddingLeft: '20px',
+                maxHeight: '150px',
+                overflowY: 'auto',
+                color: '#ffaaaa'
+              }}
+            >
               {result.failedTracks.map((t, idx) => (
                 <li key={idx} style={{ marginBottom: '4px' }}>
                   {t.title} - {t.artist}
