@@ -468,3 +468,69 @@ func TestGetClient_WithoutInjected(t *testing.T) {
 		t.Error("Expected non-nil client")
 	}
 }
+
+func TestMatchTrack_ISRC_And_Fuzzy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q := r.URL.Query().Get("q")
+		if q == "USUM71703861" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{
+						"id": map[string]any{"kind": "youtube#video", "videoId": "isrc_yt_123"},
+						"snippet": map[string]any{
+							"title":        "Hey Jude - Official Audio",
+							"channelTitle": "The Beatles - Topic",
+						},
+					},
+				},
+			})
+			return
+		}
+		if strings.Contains(q, "Hey Jude") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{
+						"id": map[string]any{"kind": "youtube#video", "videoId": "fuzzy_yt_999"},
+						"snippet": map[string]any{
+							"title":        "The Beatles - Hey Jude (Live / Remastered)",
+							"channelTitle": "The Beatles",
+						},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+
+	// 1. Exact ISRC search + fuzzy verification
+	track := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+		Isrc:   "USUM71703861",
+	}
+	id, err := a.MatchTrack(context.Background(), track, "mock-token")
+	if err != nil {
+		t.Fatalf("MatchTrack ISRC returned error: %v", err)
+	}
+	if id != "isrc_yt_123" {
+		t.Errorf("Expected 'isrc_yt_123', got '%s'", id)
+	}
+
+	// 2. Fuzzy text fallback search
+	trackNoIsrc := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+	}
+	id2, err := a.MatchTrack(context.Background(), trackNoIsrc, "mock-token")
+	if err != nil {
+		t.Fatalf("MatchTrack fuzzy returned error: %v", err)
+	}
+	if id2 != "fuzzy_yt_999" {
+		t.Errorf("Expected 'fuzzy_yt_999', got '%s'", id2)
+	}
+}

@@ -83,6 +83,23 @@ func tidalMux(
 			return
 		}
 
+		// Tracks ISRC endpoint simulation
+		if r.Method == http.MethodGet && r.URL.Path == "/tracks" {
+			isrc := r.URL.Query().Get("filter[isrc]")
+			if isrc == "USUM71703861" {
+				resp := map[string]any{
+					"data": []map[string]any{
+						{
+							"id":   "isrc_track_123",
+							"type": "tracks",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(resp)
+				return
+			}
+		}
+
 		// MatchTrack (Search)
 		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/searchResults/") {
 			query := strings.TrimPrefix(r.URL.Path, "/searchResults/")
@@ -322,5 +339,40 @@ func TestAuthFlow(t *testing.T) {
 	_, err := a.ExchangeAuthCode(context.Background(), "dummy_code")
 	if err == nil {
 		t.Error("Expected ExchangeAuthCode error, got nil")
+	}
+}
+
+func TestMatchTrack_ISRC_And_Fuzzy(t *testing.T) {
+	server := httptest.NewServer(tidalMux("new_id", map[string]string{
+		"hey jude": "track999",
+	}))
+	defer server.Close()
+	a := newTestAdapter(server.URL)
+
+	// Test exact ISRC match
+	track := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+		Isrc:   "USUM71703861",
+	}
+	id, err := a.MatchTrack(context.Background(), track, "token")
+	if err != nil {
+		t.Fatalf("ISRC MatchTrack failed: %v", err)
+	}
+	if id != "isrc_track_123" {
+		t.Errorf("Expected 'isrc_track_123', got %s", id)
+	}
+
+	// Test fuzzy match (text fallback)
+	trackNoIsrc := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+	}
+	id2, err := a.MatchTrack(context.Background(), trackNoIsrc, "token")
+	if err != nil {
+		t.Fatalf("Fuzzy MatchTrack failed: %v", err)
+	}
+	if id2 != "track999" {
+		t.Errorf("Expected 'track999', got %s", id2)
 	}
 }

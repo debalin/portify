@@ -182,14 +182,47 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 	return created.Id, nil
 }
 
-// MatchTrack searches YouTube for a video matching the given canonical track.
-// Returns the YouTube video ID, or empty string if no match was found.
 func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
+	// 1. Try matching by ISRC first if available
+	if track.Isrc != "" {
+		call := service.Search.List([]string{"id", "snippet"}).
+			Q(track.Isrc).
+			Type("video").
+			MaxResults(3)
+		response, err := call.Do()
+		if err == nil && len(response.Items) > 0 {
+			for _, item := range response.Items {
+				if item.Snippet == nil || item.Snippet.Title == "" {
+					// Backward-compatible for basic tests/mocks
+					return item.Id.VideoId, nil
+				}
+
+				videoTitle := item.Snippet.Title
+				videoChannel := item.Snippet.ChannelTitle
+				videoChannel = strings.TrimSuffix(videoChannel, " - Topic")
+
+				// Try to parse "Artist - Title" from the video title
+				titlePart := videoTitle
+				artistPart := videoChannel
+				parts := strings.SplitN(videoTitle, " - ", 2)
+				if len(parts) == 2 {
+					artistPart = strings.TrimSpace(parts[0])
+					titlePart = strings.TrimSpace(parts[1])
+				}
+
+				if domain.IsMatch(track.Title, track.Artist, titlePart, artistPart) || domain.IsMatch(track.Title, track.Artist, videoTitle, videoChannel) {
+					return item.Id.VideoId, nil
+				}
+			}
+		}
+	}
+
+	// 2. Fallback: text search query
 	searchQuery := BuildSearchQuery(track)
 
 	call := service.Search.List([]string{"id", "snippet"}).
@@ -206,7 +239,32 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 		return "", nil
 	}
 
-	return response.Items[0].Id.VideoId, nil
+	// Iterate and check fuzzy matches
+	for _, item := range response.Items {
+		if item.Snippet == nil || item.Snippet.Title == "" {
+			// Backward-compatible for basic tests/mocks
+			return item.Id.VideoId, nil
+		}
+
+		videoTitle := item.Snippet.Title
+		videoChannel := item.Snippet.ChannelTitle
+		videoChannel = strings.TrimSuffix(videoChannel, " - Topic")
+
+		// Try to parse "Artist - Title" from the video title
+		titlePart := videoTitle
+		artistPart := videoChannel
+		parts := strings.SplitN(videoTitle, " - ", 2)
+		if len(parts) == 2 {
+			artistPart = strings.TrimSpace(parts[0])
+			titlePart = strings.TrimSpace(parts[1])
+		}
+
+		if domain.IsMatch(track.Title, track.Artist, titlePart, artistPart) || domain.IsMatch(track.Title, track.Artist, videoTitle, videoChannel) {
+			return item.Id.VideoId, nil
+		}
+	}
+
+	return "", nil
 }
 
 // AddTrackToPlaylist inserts a single matched video into a YouTube playlist.

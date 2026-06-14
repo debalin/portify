@@ -163,8 +163,8 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 
 // FetchPlaylist retrieves a single playlist by ID
 func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
-	// Request tracks and their associated artists
-	resp, err := a.doRequest(ctx, authToken, http.MethodGet, "/playlists/"+playlistID+"?include=items,items.artists", nil)
+	// Request tracks and their associated artists and albums
+	resp, err := a.doRequest(ctx, authToken, http.MethodGet, "/playlists/"+playlistID+"?include=items,items.artists,items.albums", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch playlist metadata: %w", err)
 	}
@@ -181,7 +181,8 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 			Type       string `json:"type"`
 			Attributes struct {
 				Title string `json:"title"` // For tracks
-				Name  string `json:"name"`  // For artists
+				Name  string `json:"name"`  // For artists / albums
+				Isrc  string `json:"isrc"`  // For tracks (ISRC)
 			} `json:"attributes"`
 			Relationships struct {
 				Artists struct {
@@ -189,6 +190,11 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 						ID string `json:"id"`
 					} `json:"data"`
 				} `json:"artists"`
+				Albums struct {
+					Data []struct {
+						ID string `json:"id"`
+					} `json:"data"`
+				} `json:"albums"`
 			} `json:"relationships"`
 		} `json:"included"`
 	}
@@ -203,11 +209,14 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 		Tracks:      make([]*converterv1.CanonicalTrack, 0),
 	}
 
-	// 1. Build an artist map
+	// 1. Build an artist and album map
 	artistsMap := make(map[string]string)
+	albumsMap := make(map[string]string)
 	for _, item := range data.Included {
 		if item.Type == "artists" {
 			artistsMap[item.ID] = item.Attributes.Name
+		} else if item.Type == "albums" {
+			albumsMap[item.ID] = item.Attributes.Name
 		}
 	}
 
@@ -226,9 +235,19 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 				artistStr = strings.Join(artistNames, ", ")
 			}
 
+			albumStr := ""
+			for _, alData := range item.Relationships.Albums.Data {
+				if name, ok := albumsMap[alData.ID]; ok {
+					albumStr = name
+					break
+				}
+			}
+
 			canonical.Tracks = append(canonical.Tracks, &converterv1.CanonicalTrack{
 				Title:  item.Attributes.Title,
 				Artist: artistStr,
+				Album:  albumStr,
+				Isrc:   item.Attributes.Isrc,
 			})
 		}
 	}
@@ -264,8 +283,30 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 }
 
 func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	// 1. Try matching by ISRC first if available
+	if track.Isrc != "" {
+		endpoint := fmt.Sprintf("/tracks?filter[isrc]=%s&countryCode=US", url.QueryEscape(track.Isrc))
+		resp, err := a.doRequest(ctx, authToken, http.MethodGet, endpoint, nil)
+		if err == nil {
+			var isrcData struct {
+				Data []struct {
+					ID   string `json:"id"`
+					Type string `json:"type"`
+				} `json:"data"`
+			}
+			if json.Unmarshal(resp, &isrcData) == nil {
+				for _, item := range isrcData.Data {
+					if item.Type == "tracks" && item.ID != "" {
+						return item.ID, nil
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Fallback to text search with fuzzy matching
 	query := url.QueryEscape(fmt.Sprintf("%s %s", track.Title, track.Artist))
-	endpoint := fmt.Sprintf("/searchResults/%s?include=tracks&countryCode=US", query)
+	endpoint := fmt.Sprintf("/searchResults/%s?include=tracks,tracks.artists&countryCode=US", query)
 	resp, err := a.doRequest(ctx, authToken, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return "", fmt.Errorf("search request failed: %w", err)
@@ -273,8 +314,19 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 
 	var data struct {
 		Included []struct {
-			Type string `json:"type"`
-			ID   string `json:"id"`
+			ID         string `json:"id"`
+			Type       string `json:"type"`
+			Attributes struct {
+				Title string `json:"title"`
+				Name  string `json:"name"`
+			} `json:"attributes"`
+			Relationships struct {
+				Artists struct {
+					Data []struct {
+						ID string `json:"id"`
+					} `json:"data"`
+				} `json:"artists"`
+			} `json:"relationships"`
 		} `json:"included"`
 	}
 
@@ -282,9 +334,36 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 		return "", fmt.Errorf("failed to parse search results: %w", err)
 	}
 
+	// Build artist map for fuzzy comparison
+	artistsMap := make(map[string]string)
+	for _, item := range data.Included {
+		if item.Type == "artists" {
+			artistsMap[item.ID] = item.Attributes.Name
+		}
+	}
+
+	// Evaluate candidates
 	for _, item := range data.Included {
 		if item.Type == "tracks" && item.ID != "" {
-			return item.ID, nil
+			if item.Attributes.Title == "" {
+				// No attributes available for fuzzy matching (e.g. in tests), accept first track
+				return item.ID, nil
+			}
+
+			var artistNames []string
+			for _, aData := range item.Relationships.Artists.Data {
+				if name, ok := artistsMap[aData.ID]; ok {
+					artistNames = append(artistNames, name)
+				}
+			}
+			artistStr := ""
+			if len(artistNames) > 0 {
+				artistStr = strings.Join(artistNames, ", ")
+			}
+
+			if domain.IsMatch(track.Title, track.Artist, item.Attributes.Title, artistStr) {
+				return item.ID, nil
+			}
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
@@ -478,5 +479,78 @@ func TestGetClient_WithoutInjected(t *testing.T) {
 	got := a.GetHTTPClient(context.Background(), "test-token")
 	if got == nil {
 		t.Error("Expected non-nil client")
+	}
+}
+
+func TestMatchTrack_ISRC_And_Fuzzy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handled below
+	}))
+	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q := r.URL.Query().Get("q")
+		if strings.Contains(q, "isrc:USUM71703861") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"tracks": map[string]any{
+					"items": []map[string]any{
+						{
+							"id":   "isrc_spotify_123",
+							"name": "Hey Jude",
+							"artists": []map[string]any{
+								{"name": "The Beatles"},
+							},
+						},
+					},
+				},
+			})
+			return
+		}
+		if strings.Contains(q, "track:Hey Jude") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"tracks": map[string]any{
+					"items": []map[string]any{
+						{
+							"id":   "fuzzy_spotify_999",
+							"name": "Hey Jude (Live)",
+							"artists": []map[string]any{
+								{"name": "The Beatles"},
+							},
+						},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	})
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+
+	// 1. Exact ISRC match
+	track := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+		Isrc:   "USUM71703861",
+	}
+	id, err := a.MatchTrack(context.Background(), track, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack ISRC error: %v", err)
+	}
+	if id != "isrc_spotify_123" {
+		t.Errorf("Expected 'isrc_spotify_123', got '%s'", id)
+	}
+
+	// 2. Fuzzy text fallback match (matches "Hey Jude (Live)" because title similarity is >= 0.75 after cleaning, and artist matches)
+	trackNoIsrc := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+	}
+	id2, err := a.MatchTrack(context.Background(), trackNoIsrc, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack fuzzy error: %v", err)
+	}
+	if id2 != "fuzzy_spotify_999" {
+		t.Errorf("Expected 'fuzzy_spotify_999', got '%s'", id2)
 	}
 }
