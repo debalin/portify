@@ -70,4 +70,9 @@ describe('ProviderBox', () => {
     expect(screen.getByText('✨ Create New Playlist')).toBeDefined()
     expect(screen.getByText('Destination')).toBeDefined()
   })
+
+  it('renders Sync to Liked Songs option for youtube destination', () => {
+    render(<ProviderBox {...defaultProps} type="destination" providerId="youtube" token="mock-token" />)
+    expect(screen.getByText('❤️ Sync to Liked Songs')).toBeDefined()
+  })
 })

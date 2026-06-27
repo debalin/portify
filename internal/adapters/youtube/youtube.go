@@ -274,6 +274,15 @@ func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, tra
 		return fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
+	if playlistID == "LIKED_SONGS" {
+		call := service.Videos.Rate(trackID, "like")
+		err = call.Do()
+		if err != nil {
+			return fmt.Errorf("failed to like video %s: %w", trackID, err)
+		}
+		return nil
+	}
+
 	playlistItem := &yt.PlaylistItem{
 		Snippet: &yt.PlaylistItemSnippet{
 			PlaylistId: playlistID,
@@ -295,6 +304,9 @@ func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, tra
 
 // GetPlaylistURL returns the YouTube Music URL for a playlist.
 func (a *Adapter) GetPlaylistURL(playlistID string) string {
+	if playlistID == "LIKED_SONGS" {
+		return "https://music.youtube.com/playlist?list=LM"
+	}
 	return fmt.Sprintf("https://music.youtube.com/playlist?list=%s", playlistID)
 }
 

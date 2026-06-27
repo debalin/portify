@@ -109,6 +109,17 @@ FRONTEND_URL="http://127.0.0.1:5175/"
 VITE_SHOW_DEBUG_PANEL=false
 ```
 
+## ⚠️ YouTube API Quota Information
+
+The YouTube Data API v3 enforces a daily budget of **10,000 quota units** per Google Cloud project. Outgoing actions consume this quota at varying rates:
+- **Search (MatchTrack):** 100 units per query
+- **Playlist Insert (AddTrackToPlaylist):** 50 units per track
+- **Like Video (LikeTrack / Sync to Liked Songs):** 50 units per track
+
+Converting a single track (Search + Insert/Like) costs a total of **150 units**. Consequently, a single developer key can support ~66 track conversions per day across all users before the quota is exhausted until midnight PST. 
+
+If deploying this in production, developers must request a **Quota Extension** from Google or implement **Search Caching (Issue #26)** to store results database-side and reduce search calls.
+
 ## 🏃 Getting Started
 
 ### Prerequisites

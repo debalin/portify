@@ -68,7 +68,12 @@ export function ProviderBox({
                  ? <option value="">Fetching Playlists...</option> 
                  : (isSource 
                      ? <option value="" disabled>Select a playlist...</option> 
-                     : <option value="">✨ Create New Playlist</option>)
+                     : (
+                        <>
+                          <option value="">✨ Create New Playlist</option>
+                          {providerId === 'youtube' && <option value="LIKED_SONGS">❤️ Sync to Liked Songs</option>}
+                        </>
+                      ))
               }
               {playlists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
            </select>

@@ -216,6 +216,20 @@ func ytMux(
 			}
 			json.NewEncoder(w).Encode(map[string]any{"id": "item-" + videoID})
 
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/youtube/v3/videos/rate"):
+			id := r.URL.Query().Get("id")
+			rating := r.URL.Query().Get("rating")
+			if rating != "like" || id == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if insertErrors[id] {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -532,5 +546,32 @@ func TestMatchTrack_ISRC_And_Fuzzy(t *testing.T) {
 	}
 	if id2 != "fuzzy_yt_999" {
 		t.Errorf("Expected 'fuzzy_yt_999', got '%s'", id2)
+	}
+}
+
+func TestAddTrackToPlaylist_LikeSongs(t *testing.T) {
+	server := httptest.NewServer(ytMux("", nil, map[string]bool{"error-video-id": true}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	ctx := context.Background()
+
+	// 1. Success case
+	err := a.AddTrackToPlaylist(ctx, "LIKED_SONGS", "success-video-id", "mock-token")
+	if err != nil {
+		t.Fatalf("AddTrackToPlaylist with LIKED_SONGS returned error: %v", err)
+	}
+
+	// Verify the Liked Songs URL generator
+	url := a.GetPlaylistURL("LIKED_SONGS")
+	expectedURL := "https://music.youtube.com/playlist?list=LM"
+	if url != expectedURL {
+		t.Errorf("Expected URL '%s', got '%s'", expectedURL, url)
+	}
+
+	// 2. Error case (video.rate endpoint fails)
+	err = a.AddTrackToPlaylist(ctx, "LIKED_SONGS", "error-video-id", "mock-token")
+	if err == nil {
+		t.Fatal("Expected error when rating fails, got nil")
 	}
 }

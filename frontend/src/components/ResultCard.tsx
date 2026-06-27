@@ -35,7 +35,7 @@ export function ResultCard({ result, progress, destPlaylistId }: ResultCardProps
         )}
         {result.url && (
           <a href={result.url} target="portify_dest" rel="noreferrer" className="result-link">
-            {destPlaylistId ? 'Open Playlist' : 'Open New Playlist'} &rarr;
+            {destPlaylistId === 'LIKED_SONGS' ? 'Open Liked Music' : (destPlaylistId ? 'Open Playlist' : 'Open New Playlist')} &rarr;
           </a>
         )}
         {result.failedTracks && result.failedTracks.length > 0 && (

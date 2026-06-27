@@ -38,4 +38,15 @@ describe('ResultCard', () => {
     expect(screen.getByText('Failed to compile 1 tracks')).toBeInTheDocument()
     expect(screen.getByText('Track A - Artist A')).toBeInTheDocument()
   })
+
+  it('renders Open Liked Music text when destPlaylistId is LIKED_SONGS', () => {
+    render(
+      <ResultCard 
+        result={{ success: true, message: 'Done conversion', url: 'https://music.youtube.com/playlist?list=LM' }}
+        progress={{ converted: 5, total: 5 }}
+        destPlaylistId="LIKED_SONGS"
+      />
+    )
+    expect(screen.getByRole('link', { name: /open liked music/i })).toHaveAttribute('href', 'https://music.youtube.com/playlist?list=LM')
+  })
 })
