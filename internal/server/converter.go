@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
+	"github.com/debalin/portify/internal/adapters/common"
 	"github.com/debalin/portify/internal/domain"
 )
 
@@ -219,8 +222,20 @@ func (s *ConverterServer) ConvertPlaylist(
 	var failedTracks []*converterv1.CanonicalTrack
 
 	for _, track := range canonicalPlaylist.Tracks {
+		retryHook := func(event common.RetryEvent) {
+			stream.Send(&converterv1.ConvertPlaylistResponse{
+				Status: converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
+				Message: fmt.Sprintf("[%s] Rate limited (HTTP %d). Retrying in %v (attempt %d)...",
+					strings.ToUpper(event.ProviderID), event.StatusCode, event.Delay.Round(time.Second), event.Attempt),
+				TracksTotal:     totalTracks,
+				TracksConverted: converted,
+				TracksFailed:    failed,
+			})
+		}
+		trackCtx := common.WithRetryHook(ctx, retryHook)
+
 		// Match
-		trackID, err := dest.MatchTrack(ctx, track, req.Msg.DestinationAuthToken)
+		trackID, err := dest.MatchTrack(trackCtx, track, req.Msg.DestinationAuthToken)
 		if err != nil || trackID == "" {
 			failed++
 			failedTracks = append(failedTracks, track)
@@ -235,7 +250,7 @@ func (s *ConverterServer) ConvertPlaylist(
 		}
 
 		// Insert
-		err = dest.AddTrackToPlaylist(ctx, playlistID, trackID, req.Msg.DestinationAuthToken)
+		err = dest.AddTrackToPlaylist(trackCtx, playlistID, trackID, req.Msg.DestinationAuthToken)
 		if err != nil {
 			failed++
 			failedTracks = append(failedTracks, track)
