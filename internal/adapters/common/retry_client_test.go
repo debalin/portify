@@ -254,3 +254,163 @@ func TestRetryRoundTripper_HookNotification(t *testing.T) {
 		t.Errorf("Expected hook to be called 2 times, got: %d", finalHookCalled)
 	}
 }
+
+type badReader struct{}
+
+func (badReader) Read(p []byte) (int, error) {
+	return 0, errors.New("read error")
+}
+func (badReader) Close() error {
+	return nil
+}
+
+func TestRetryRoundTripper_BodyReadError(t *testing.T) {
+	rt := &RetryRoundTripper{
+		Base:       http.DefaultTransport,
+		Classifier: StandardClassifier,
+	}
+	req, _ := http.NewRequest("POST", "http://example.com", badReader{})
+	_, err := rt.RoundTrip(req)
+	if err == nil || err.Error() != "read error" {
+		t.Errorf("expected read error, got: %v", err)
+	}
+}
+
+type mockRoundTripper struct {
+	roundTripFunc func(req *http.Request) (*http.Response, error)
+}
+
+func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return m.roundTripFunc(req)
+}
+
+func TestRetryRoundTripper_GetBodyError(t *testing.T) {
+	rt := &RetryRoundTripper{
+		Base: &mockRoundTripper{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return nil, errors.New("transient network error")
+			},
+		},
+		Classifier: func(resp *http.Response, err error) (bool, time.Duration) {
+			return true, 0
+		},
+		MaxRetries: 1,
+		MinBackoff: 1 * time.Millisecond,
+	}
+	req, _ := http.NewRequest("POST", "http://example.com", bytes.NewBufferString("hello"))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return nil, errors.New("getbody error")
+	}
+	_, err := rt.RoundTrip(req)
+	if err == nil || err.Error() != "getbody error" {
+		t.Errorf("expected getbody error, got: %v", err)
+	}
+}
+
+func TestRetryRoundTripper_RetryAfterInvalid(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusTooManyRequests,
+		Header:     make(http.Header),
+	}
+	resp.Header.Set("Retry-After", "not-a-number")
+	retryable, backoff := StandardClassifier(resp, nil)
+	if !retryable {
+		t.Error("expected retryable = true")
+	}
+	if backoff != 0 {
+		t.Errorf("expected backoff = 0, got %v", backoff)
+	}
+}
+
+func TestRetryRoundTripper_GetBackoffOverflow(t *testing.T) {
+	rt := &RetryRoundTripper{
+		Classifier: func(resp *http.Response, err error) (bool, time.Duration) {
+			return false, 0
+		},
+	}
+	// Normal cap at maxBackoff (not overflowing int64), subject to full jitter [0, maxBackoff]
+	duration := rt.getBackoff(5, nil, nil, 10*time.Second, 100*time.Second)
+	if duration <= 0 || duration > 100*time.Second {
+		t.Errorf("expected backoff between 0 and maxBackoff, got %v", duration)
+	}
+
+	// Overflow test, should bypass jitter and return minBackoff
+	durationOverflow := rt.getBackoff(100, nil, nil, 10*time.Second, 10000*time.Hour)
+	if durationOverflow != 10*time.Second {
+		t.Errorf("expected overflow protection to fallback to minBackoff, got %v", durationOverflow)
+	}
+}
+
+func TestRetryRoundTripper_CancellationWithLastResp(t *testing.T) {
+	var bodyClosed int32
+	mockRespBody := &mockReadCloser{
+		Reader: bytes.NewReader([]byte("transient failure details")),
+		closeFunc: func() error {
+			atomic.StoreInt32(&bodyClosed, 1)
+			return nil
+		},
+	}
+	rt := &RetryRoundTripper{
+		Base: &mockRoundTripper{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusServiceUnavailable,
+					Body:       mockRespBody,
+				}, nil
+			},
+		},
+		Classifier: func(resp *http.Response, err error) (bool, time.Duration) {
+			return true, 0
+		},
+		MaxRetries: 2,
+		MinBackoff: 10 * time.Millisecond,
+		MaxBackoff: 20 * time.Millisecond,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	req, _ := http.NewRequestWithContext(ctx, "GET", "http://example.com", nil)
+
+	hook := func(event RetryEvent) {
+		cancel()
+	}
+	ctx = WithRetryHook(ctx, hook)
+	req = req.WithContext(ctx)
+
+	_, err := rt.RoundTrip(req)
+	if err == nil {
+		t.Fatal("expected context canceled error")
+	}
+
+	if atomic.LoadInt32(&bodyClosed) != 1 {
+		t.Error("expected last response body to be closed upon context cancellation")
+	}
+}
+
+type mockReadCloser struct {
+	io.Reader
+	closeFunc func() error
+}
+
+func (m *mockReadCloser) Close() error {
+	return m.closeFunc()
+}
+
+func TestStandardClassifier_OtherStatusCodes(t *testing.T) {
+	cases := []struct {
+		statusCode int
+		expected   bool
+	}{
+		{http.StatusBadGateway, true},
+		{http.StatusGatewayTimeout, true},
+		{http.StatusInternalServerError, false},
+		{http.StatusOK, false},
+	}
+	for _, tc := range cases {
+		resp := &http.Response{StatusCode: tc.statusCode}
+		retryable, _ := StandardClassifier(resp, nil)
+		if retryable != tc.expected {
+			t.Errorf("status %d: expected retryable = %t, got %t", tc.statusCode, tc.expected, retryable)
+		}
+	}
+}
+
