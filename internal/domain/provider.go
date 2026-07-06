@@ -1,42 +1,7 @@
 package domain
 
-import (
-	"context"
-
-	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
-)
-
-// ProviderInfo contains basic information about a provider
-type ProviderInfo struct {
-	ID          string
-	Name        string
-	AuthURLHint string
-}
-
-// PlaylistSource defines the interface for fetching playlists from a source platform (e.g., Spotify)
-type PlaylistSource interface {
-	Info() ProviderInfo
-	GetAuthURL() string
-	ExchangeAuthCode(ctx context.Context, code string) (string, error)
-	ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error)
-	FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error)
-}
-
-// PlaylistSink defines the interface for creating/saving playlists to a destination platform (e.g., YouTube Music)
-type PlaylistSink interface {
-	Info() ProviderInfo
-	GetAuthURL() string
-	ExchangeAuthCode(ctx context.Context, code string) (string, error)
-	ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error)
-	SavePlaylist(ctx context.Context, playlist *converterv1.CanonicalPlaylist, authToken string, destinationPlaylistID string, onProgress func(converted, failed int)) (string, []*converterv1.CanonicalTrack, error) // Returns destination URL and failed tracks
-}
-
-// TrackMatcher defines the interface for matching a canonical track on a specific platform
-type TrackMatcher interface {
-	Match(ctx context.Context, track *converterv1.CanonicalTrack) (string, error) // Returns platform-specific track ID
-}
-
-// ProviderRegistry manages the available sources and sinks
+// ProviderRegistry manages the available source and sink adapters.
+// Sources and sinks are registered at startup by main.go and looked up by the RPC server.
 type ProviderRegistry struct {
 	sources      map[string]PlaylistSource
 	destinations map[string]PlaylistSink
