@@ -3,12 +3,18 @@ package common
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type retryHookKey struct{}
@@ -140,7 +146,48 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 			}
 		}
 
+		var span trace.Span
+		ctx := req.Context()
+		ctx, span = Tracer.Start(ctx, fmt.Sprintf("%s_api_call", r.ProviderID), trace.WithSpanKind(trace.SpanKindClient))
+		req = req.WithContext(ctx)
+
+		startTime := time.Now()
 		resp, err := r.Base.RoundTrip(req)
+		latency := time.Since(startTime).Seconds()
+
+		statusCode := 0
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+
+		// Record metrics
+		APIRequestsTotal.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("provider", r.ProviderID),
+			attribute.Int("status_code", statusCode),
+		))
+		APILatency.Record(ctx, latency, metric.WithAttributes(
+			attribute.String("provider", r.ProviderID),
+		))
+		if attempt > 0 {
+			APIRetriesTotal.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("provider", r.ProviderID),
+				attribute.Int("attempt", attempt),
+				attribute.Int("status_code", statusCode),
+			))
+		}
+
+		// Record span data
+		span.SetAttributes(
+			attribute.String("http.method", req.Method),
+			attribute.String("http.url", req.URL.String()),
+			attribute.Int("http.status_code", statusCode),
+			attribute.Int("retry.attempt", attempt),
+		)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
 
 		retryable, _ := r.Classifier(resp, err)
 		if !retryable || attempt == maxRetries {
