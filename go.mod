@@ -3,7 +3,7 @@ module github.com/debalin/portify
 go 1.25.8
 
 require (
-	connectrpc.com/connect v1.19.1
+	connectrpc.com/connect v1.20.0
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/cors v1.11.1
