@@ -216,6 +216,20 @@ func ytMux(
 			}
 			json.NewEncoder(w).Encode(map[string]any{"id": "item-" + videoID})
 
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/youtube/v3/videos/rate"):
+			id := r.URL.Query().Get("id")
+			rating := r.URL.Query().Get("rating")
+			if rating != "like" || id == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if insertErrors[id] {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -334,6 +348,122 @@ func TestGetPlaylistURL(t *testing.T) {
 	}
 }
 
+// --- FetchPlaylist Tests ---
+
+func TestFetchPlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlists") && r.Method == "GET" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{"snippet": map[string]any{"title": "My YT Playlist", "description": "Desc"}},
+				},
+			})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlistItems") && r.Method == "GET" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{"snippet": map[string]any{"title": "Artist - Title", "videoOwnerChannelTitle": "Artist - Topic"}},
+					{"snippet": map[string]any{"title": "Just A Title", "videoOwnerChannelTitle": "Some Channel"}},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	playlist, err := a.FetchPlaylist(context.Background(), "PL123", "token")
+	if err != nil {
+		t.Fatalf("FetchPlaylist returned error: %v", err)
+	}
+
+	if playlist.Name != "My YT Playlist" {
+		t.Errorf("expected Name 'My YT Playlist', got '%s'", playlist.Name)
+	}
+	if len(playlist.Tracks) != 2 {
+		t.Fatalf("expected 2 tracks, got %d", len(playlist.Tracks))
+	}
+	if playlist.Tracks[0].Title != "Title" || playlist.Tracks[0].Artist != "Artist" {
+		t.Errorf("expected 'Title' and 'Artist', got '%s' and '%s'", playlist.Tracks[0].Title, playlist.Tracks[0].Artist)
+	}
+	if playlist.Tracks[1].Title != "Just A Title" || playlist.Tracks[1].Artist != "Some Channel" {
+		t.Errorf("expected 'Just A Title' and 'Some Channel', got '%s' and '%s'", playlist.Tracks[1].Title, playlist.Tracks[1].Artist)
+	}
+}
+
+func TestFetchPlaylist_PaginationAndParsing(t *testing.T) {
+	reqCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlists") && r.Method == "GET" {
+			json.NewEncoder(w).Encode(map[string]any{"items": []map[string]any{{"snippet": map[string]any{"title": "My YT Playlist", "description": "Desc"}}}})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlistItems") && r.Method == "GET" {
+			reqCount++
+			if reqCount == 1 {
+				json.NewEncoder(w).Encode(map[string]any{
+					"nextPageToken": "page2",
+					"items": []map[string]any{
+						{"snippet": map[string]any{"title": "Private video"}},
+						{"snippet": map[string]any{"title": "Deleted video"}},
+						{"snippet": map[string]any{"title": "Real Title", "videoOwnerChannelTitle": "Real Artist - Topic"}},
+					},
+				})
+				return
+			} else {
+				json.NewEncoder(w).Encode(map[string]any{
+					"items": []map[string]any{
+						{"snippet": map[string]any{"title": "Just Title", "videoOwnerChannelTitle": "Just Channel"}},
+					},
+				})
+				return
+			}
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	playlist, err := a.FetchPlaylist(context.Background(), "PL123", "token")
+	if err != nil {
+		t.Fatalf("FetchPlaylist returned error: %v", err)
+	}
+	if len(playlist.Tracks) != 2 {
+		t.Fatalf("expected 2 tracks (skipping private/deleted), got %d", len(playlist.Tracks))
+	}
+	if playlist.Tracks[0].Title != "Real Title" || playlist.Tracks[0].Artist != "Real Artist" {
+		t.Errorf("expected 'Real Title' and 'Real Artist', got '%s' and '%s'", playlist.Tracks[0].Title, playlist.Tracks[0].Artist)
+	}
+	if playlist.Tracks[1].Title != "Just Title" || playlist.Tracks[1].Artist != "Just Channel" {
+		t.Errorf("expected 'Just Title' and 'Just Channel', got '%s' and '%s'", playlist.Tracks[1].Title, playlist.Tracks[1].Artist)
+	}
+}
+
+func TestFetchPlaylist_ItemsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlists") {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"items": []map[string]any{{"snippet": map[string]any{"title": "My YT Playlist"}}}})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlistItems") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	_, err := a.FetchPlaylist(context.Background(), "PL123", "token")
+	if err == nil {
+		t.Fatal("Expected error on playlist items failure")
+	}
+}
+
 // --- getClient Tests ---
 
 func TestGetClient_WithInjected(t *testing.T) {
@@ -350,5 +480,98 @@ func TestGetClient_WithoutInjected(t *testing.T) {
 	got := a.GetHTTPClient(context.Background(), "test-token")
 	if got == nil {
 		t.Error("Expected non-nil client")
+	}
+}
+
+func TestMatchTrack_ISRC_And_Fuzzy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q := r.URL.Query().Get("q")
+		if q == "USUM71703861" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{
+						"id": map[string]any{"kind": "youtube#video", "videoId": "isrc_yt_123"},
+						"snippet": map[string]any{
+							"title":        "Hey Jude - Official Audio",
+							"channelTitle": "The Beatles - Topic",
+						},
+					},
+				},
+			})
+			return
+		}
+		if strings.Contains(q, "Hey Jude") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{
+						"id": map[string]any{"kind": "youtube#video", "videoId": "fuzzy_yt_999"},
+						"snippet": map[string]any{
+							"title":        "The Beatles - Hey Jude (Live / Remastered)",
+							"channelTitle": "The Beatles",
+						},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+
+	// 1. Exact ISRC search + fuzzy verification
+	track := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+		Isrc:   "USUM71703861",
+	}
+	id, err := a.MatchTrack(context.Background(), track, "mock-token")
+	if err != nil {
+		t.Fatalf("MatchTrack ISRC returned error: %v", err)
+	}
+	if id != "isrc_yt_123" {
+		t.Errorf("Expected 'isrc_yt_123', got '%s'", id)
+	}
+
+	// 2. Fuzzy text fallback search
+	trackNoIsrc := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+	}
+	id2, err := a.MatchTrack(context.Background(), trackNoIsrc, "mock-token")
+	if err != nil {
+		t.Fatalf("MatchTrack fuzzy returned error: %v", err)
+	}
+	if id2 != "fuzzy_yt_999" {
+		t.Errorf("Expected 'fuzzy_yt_999', got '%s'", id2)
+	}
+}
+
+func TestAddTrackToPlaylist_LikeSongs(t *testing.T) {
+	server := httptest.NewServer(ytMux("", nil, map[string]bool{"error-video-id": true}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	ctx := context.Background()
+
+	// 1. Success case
+	err := a.AddTrackToPlaylist(ctx, "LIKED_SONGS", "success-video-id", "mock-token")
+	if err != nil {
+		t.Fatalf("AddTrackToPlaylist with LIKED_SONGS returned error: %v", err)
+	}
+
+	// Verify the Liked Songs URL generator
+	url := a.GetPlaylistURL("LIKED_SONGS")
+	expectedURL := "https://music.youtube.com/playlist?list=LM"
+	if url != expectedURL {
+		t.Errorf("Expected URL '%s', got '%s'", expectedURL, url)
+	}
+
+	// 2. Error case (video.rate endpoint fails)
+	err = a.AddTrackToPlaylist(ctx, "LIKED_SONGS", "error-video-id", "mock-token")
+	if err == nil {
+		t.Fatal("Expected error when rating fails, got nil")
 	}
 }
