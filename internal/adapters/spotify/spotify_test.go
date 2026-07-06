@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/adapters/common"
 )
 
@@ -289,6 +291,178 @@ func TestFetchPlaylist_TrackWithNoArtist(t *testing.T) {
 	}
 }
 
+// --- CreatePlaylist Tests ---
+
+func TestCreatePlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/me" {
+			json.NewEncoder(w).Encode(map[string]any{"id": "user123"})
+			return
+		}
+		if r.URL.Path == "/v1/users/user123/playlists" && r.Method == "POST" {
+			json.NewEncoder(w).Encode(map[string]any{"id": "new-playlist-id"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	id, err := a.CreatePlaylist(context.Background(), "Name", "Desc", "token")
+	if err != nil {
+		t.Fatalf("CreatePlaylist error: %v", err)
+	}
+	if id != "new-playlist-id" {
+		t.Errorf("expected 'new-playlist-id', got '%s'", id)
+	}
+}
+
+func TestCreatePlaylist_UserError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	_, err := a.CreatePlaylist(context.Background(), "Name", "Desc", "token")
+	if err == nil {
+		t.Fatal("Expected error on /v1/me failure")
+	}
+}
+
+func TestCreatePlaylist_CreateError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/me" {
+			json.NewEncoder(w).Encode(map[string]any{"id": "user123"})
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	_, err := a.CreatePlaylist(context.Background(), "Name", "Desc", "token")
+	if err == nil {
+		t.Fatal("Expected error on playlist creation failure")
+	}
+}
+
+// --- MatchTrack Tests ---
+
+func TestMatchTrack_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/search" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"tracks": map[string]any{
+					"items": []map[string]any{
+						{"id": "track123"},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	track := &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}
+	id, err := a.MatchTrack(context.Background(), track, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack error: %v", err)
+	}
+	if id != "track123" {
+		t.Errorf("expected 'track123', got '%s'", id)
+	}
+}
+
+func TestMatchTrack_FallbackSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q := r.URL.Query().Get("q")
+		if q == "track:Title artist:Artist" {
+			json.NewEncoder(w).Encode(map[string]any{"tracks": map[string]any{"items": []any{}}})
+			return
+		}
+		if q == "track:Title" {
+			json.NewEncoder(w).Encode(map[string]any{"tracks": map[string]any{"items": []map[string]any{{"id": "fallback123"}}}})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	track := &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}
+	id, err := a.MatchTrack(context.Background(), track, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack error: %v", err)
+	}
+	if id != "fallback123" {
+		t.Errorf("expected 'fallback123', got '%s'", id)
+	}
+}
+
+func TestMatchTrack_SearchError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	track := &converterv1.CanonicalTrack{Title: "Title", Artist: "Artist"}
+	_, err := a.MatchTrack(context.Background(), track, "token")
+	if err == nil {
+		t.Fatal("Expected error on /v1/search failure")
+	}
+}
+
+// --- AddTrackToPlaylist Tests ---
+
+func TestAddTrackToPlaylist_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/playlists/pl123/tracks" && r.Method == "POST" {
+			json.NewEncoder(w).Encode(map[string]any{"snapshot_id": "snap123"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	err := a.AddTrackToPlaylist(context.Background(), "pl123", "track123", "token")
+	if err != nil {
+		t.Fatalf("AddTrackToPlaylist error: %v", err)
+	}
+}
+
+func TestAddTrackToPlaylist_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+	err := a.AddTrackToPlaylist(context.Background(), "pl123", "track123", "token")
+	if err == nil {
+		t.Fatal("Expected error on add tracks failure")
+	}
+}
+
+// --- GetPlaylistURL Tests ---
+
+func TestGetPlaylistURL(t *testing.T) {
+	a := NewAdapter()
+	url := a.GetPlaylistURL("pl123")
+	expected := "https://open.spotify.com/playlist/pl123"
+	if url != expected {
+		t.Errorf("expected '%s', got '%s'", expected, url)
+	}
+}
+
 // --- getClient Tests ---
 
 func TestGetClient_WithInjected(t *testing.T) {
@@ -305,5 +479,78 @@ func TestGetClient_WithoutInjected(t *testing.T) {
 	got := a.GetHTTPClient(context.Background(), "test-token")
 	if got == nil {
 		t.Error("Expected non-nil client")
+	}
+}
+
+func TestMatchTrack_ISRC_And_Fuzzy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handled below
+	}))
+	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q := r.URL.Query().Get("q")
+		if strings.Contains(q, "isrc:USUM71703861") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"tracks": map[string]any{
+					"items": []map[string]any{
+						{
+							"id":   "isrc_spotify_123",
+							"name": "Hey Jude",
+							"artists": []map[string]any{
+								{"name": "The Beatles"},
+							},
+						},
+					},
+				},
+			})
+			return
+		}
+		if strings.Contains(q, "track:Hey Jude") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"tracks": map[string]any{
+					"items": []map[string]any{
+						{
+							"id":   "fuzzy_spotify_999",
+							"name": "Hey Jude (Live)",
+							"artists": []map[string]any{
+								{"name": "The Beatles"},
+							},
+						},
+					},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	})
+	defer server.Close()
+
+	a := NewAdapter(common.WithHTTPClient(testClient(server.URL)))
+
+	// 1. Exact ISRC match
+	track := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+		Isrc:   "USUM71703861",
+	}
+	id, err := a.MatchTrack(context.Background(), track, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack ISRC error: %v", err)
+	}
+	if id != "isrc_spotify_123" {
+		t.Errorf("Expected 'isrc_spotify_123', got '%s'", id)
+	}
+
+	// 2. Fuzzy text fallback match (matches "Hey Jude (Live)" because title similarity is >= 0.75 after cleaning, and artist matches)
+	trackNoIsrc := &converterv1.CanonicalTrack{
+		Title:  "Hey Jude",
+		Artist: "The Beatles",
+	}
+	id2, err := a.MatchTrack(context.Background(), trackNoIsrc, "token")
+	if err != nil {
+		t.Fatalf("MatchTrack fuzzy error: %v", err)
+	}
+	if id2 != "fuzzy_spotify_999" {
+		t.Errorf("Expected 'fuzzy_spotify_999', got '%s'", id2)
 	}
 }

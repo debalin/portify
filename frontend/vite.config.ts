@@ -18,11 +18,17 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    pool: 'forks',
+    forks: {
+      singleFork: true,
+      execArgv: ['--max-old-space-size=8192'],
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/gen/**', 'src/main.tsx', 'src/vite-env.d.ts'],
     }
-  }
+  } as any
 })

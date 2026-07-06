@@ -20,9 +20,10 @@ type OAuthConfig struct {
 
 // BaseAdapter contains shared fields and methods for all provider adapters.
 type BaseAdapter struct {
-	HTTPClient *http.Client // If set, used instead of creating from token (for testing)
-	BaseURL    string       // If set, overrides the API base URL (for testing)
-	OAuthCfg   OAuthConfig  // Provider-specific OAuth configuration
+	HTTPClient *http.Client    // If set, used instead of creating from token (for testing)
+	BaseURL    string          // If set, overrides the API base URL (for testing)
+	OAuthCfg   OAuthConfig     // Provider-specific OAuth configuration
+	Classifier ErrorClassifier // Optional custom error classifier
 }
 
 // Option configures a BaseAdapter.
@@ -85,12 +86,33 @@ func (b *BaseAdapter) ExchangeAuthCode(ctx context.Context, code string) (string
 
 // GetHTTPClient returns the injected HTTP client or creates one from the auth token.
 func (b *BaseAdapter) GetHTTPClient(ctx context.Context, authToken string) *http.Client {
+	var client *http.Client
 	if b.HTTPClient != nil {
-		return b.HTTPClient
+		client = b.HTTPClient
+	} else {
+		token := &oauth2.Token{
+			AccessToken: authToken,
+			TokenType:   "Bearer",
+		}
+		client = oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
 	}
-	token := &oauth2.Token{
-		AccessToken: authToken,
-		TokenType:   "Bearer",
+
+	classifier := b.Classifier
+	if classifier == nil {
+		classifier = StandardClassifier
 	}
-	return oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
+
+	if _, ok := client.Transport.(*RetryRoundTripper); !ok {
+		baseTransport := client.Transport
+		if baseTransport == nil {
+			baseTransport = http.DefaultTransport
+		}
+		client.Transport = &RetryRoundTripper{
+			Base:       baseTransport,
+			Classifier: classifier,
+			ProviderID: b.OAuthCfg.ProviderID,
+		}
+	}
+
+	return client
 }

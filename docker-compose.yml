@@ -1,0 +1,40 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      # Use .env file variables if present. We default Mock Mode to false for staging/prod.
+      - PORTIFY_MOCK_MODE=${PORTIFY_MOCK_MODE:-false}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - SPOTIFY_ID=${SPOTIFY_ID:-}
+      - SPOTIFY_SECRET=${SPOTIFY_SECRET:-}
+      - YOUTUBE_ID=${YOUTUBE_ID:-}
+      - YOUTUBE_SECRET=${YOUTUBE_SECRET:-}
+      - TIDAL_ID=${TIDAL_ID:-}
+      - TIDAL_SECRET=${TIDAL_SECRET:-}
+      - OTEL_SERVICE_NAME=portify-backend
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
+
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - frontend
