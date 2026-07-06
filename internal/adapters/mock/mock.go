@@ -22,7 +22,7 @@ func (s *MockSource) Info() domain.ProviderInfo {
 }
 
 func (s *MockSource) GetAuthURL() string {
-	return "http://localhost:5175/?code=mock-auth-code"
+	return "/?code=mock-auth-code"
 }
 
 func (s *MockSource) ExchangeAuthCode(ctx context.Context, code string) (string, error) {
@@ -53,7 +53,7 @@ func (d *MockDestination) Info() domain.ProviderInfo {
 }
 
 func (d *MockDestination) GetAuthURL() string {
-	return "http://localhost:5175/?code=mock-auth-code"
+	return "/?code=mock-auth-code"
 }
 
 func (d *MockDestination) ExchangeAuthCode(ctx context.Context, code string) (string, error) {
@@ -93,7 +93,7 @@ func (d *MockPartialFailDestination) Info() domain.ProviderInfo {
 	return domain.ProviderInfo{ID: "youtube", Name: "YouTube (Partial Fail)", AuthURLHint: d.GetAuthURL()}
 }
 func (d *MockPartialFailDestination) GetAuthURL() string {
-	return "http://localhost:5175/?code=mock"
+	return "/?code=mock"
 }
 func (d *MockPartialFailDestination) ExchangeAuthCode(_ context.Context, _ string) (string, error) {
 	return "mock-token", nil
@@ -133,7 +133,7 @@ func (s *MockSourceWithTracks) Info() domain.ProviderInfo {
 	}
 }
 
-func (s *MockSourceWithTracks) GetAuthURL() string { return "http://localhost:5175/?code=mock" }
+func (s *MockSourceWithTracks) GetAuthURL() string { return "/?code=mock" }
 
 func (s *MockSourceWithTracks) ExchangeAuthCode(ctx context.Context, code string) (string, error) {
 	return "mock-spotify-token", nil
