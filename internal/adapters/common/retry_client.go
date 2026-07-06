@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -160,17 +161,22 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 			statusCode = resp.StatusCode
 		}
 
+		operation := classifyEndpoint(req)
+
 		// Record metrics
 		APIRequestsTotal.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("provider", r.ProviderID),
+			attribute.String("operation", operation),
 			attribute.Int("status_code", statusCode),
 		))
 		APILatency.Record(ctx, latency, metric.WithAttributes(
 			attribute.String("provider", r.ProviderID),
+			attribute.String("operation", operation),
 		))
 		if attempt > 0 {
 			APIRetriesTotal.Add(ctx, 1, metric.WithAttributes(
 				attribute.String("provider", r.ProviderID),
+				attribute.String("operation", operation),
 				attribute.Int("attempt", attempt),
 				attribute.Int("status_code", statusCode),
 			))
@@ -180,6 +186,7 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		span.SetAttributes(
 			attribute.String("http.method", req.Method),
 			attribute.String("http.url", req.URL.String()),
+			attribute.String("http.operation", operation),
 			attribute.Int("http.status_code", statusCode),
 			attribute.Int("retry.attempt", attempt),
 		)
@@ -230,3 +237,62 @@ func (r *RetryRoundTripper) getBackoff(
 	jitter := rand.Int63n(int64(backoff))
 	return time.Duration(jitter)
 }
+
+func classifyEndpoint(req *http.Request) string {
+	path := req.URL.Path
+	method := req.Method
+
+	// Spotify
+	if req.URL.Host == "api.spotify.com" || strings.Contains(req.URL.Host, "spotify") {
+		if strings.Contains(path, "/v1/search") {
+			return "Search"
+		}
+		if strings.Contains(path, "/v1/playlists") {
+			if method == "GET" {
+				return "PlaylistFetch"
+			}
+			return "PlaylistModify"
+		}
+		if strings.Contains(path, "/v1/me/playlists") {
+			return "ListPlaylists"
+		}
+		return "Other"
+	}
+
+	// YouTube
+	if req.URL.Host == "www.googleapis.com" || strings.Contains(path, "/youtube/v3") {
+		if strings.Contains(path, "/youtube/v3/search") {
+			return "Search"
+		}
+		if strings.Contains(path, "/youtube/v3/playlistItems") {
+			return "PlaylistItemModify"
+		}
+		if strings.Contains(path, "/youtube/v3/playlists") {
+			return "PlaylistModify"
+		}
+		if strings.Contains(path, "/youtube/v3/videos/rate") {
+			return "VideoRate"
+		}
+		return "Other"
+	}
+
+	// Tidal
+	if strings.Contains(req.URL.Host, "tidal") || strings.Contains(path, "/v1") {
+		if strings.Contains(path, "/search") {
+			return "Search"
+		}
+		if strings.Contains(path, "/playlists") {
+			if method == "GET" {
+				return "PlaylistFetch"
+			}
+			return "PlaylistModify"
+		}
+		if strings.Contains(path, "/my-playlists") {
+			return "ListPlaylists"
+		}
+		return "Other"
+	}
+
+	return "Other"
+}
+

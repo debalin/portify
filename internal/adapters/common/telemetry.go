@@ -87,12 +87,23 @@ func InitTelemetry(ctx context.Context) func(context.Context) {
 		log.Println("ℹ️  OTEL_EXPORTER_OTLP_ENDPOINT not set. OTLP tracing and metrics pushing are disabled (metrics served via local /metrics only).")
 	}
 
-	// 2. Setup MeterProvider with all registered readers
+	// 2. Setup MeterProvider with all registered readers and views
 	var sdkReaders []sdkmetric.Option
 	for _, r := range meterReaders {
 		sdkReaders = append(sdkReaders, sdkmetric.WithReader(r))
 	}
 	sdkReaders = append(sdkReaders, sdkmetric.WithResource(res))
+
+	// Configure custom explicit bucket boundaries for latency histogram (in seconds)
+	latencyView := sdkmetric.NewView(
+		sdkmetric.Instrument{Name: "portify_api_latency_seconds"},
+		sdkmetric.Stream{
+			Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0, 5.0, 7.5, 10.0},
+			},
+		},
+	)
+	sdkReaders = append(sdkReaders, sdkmetric.WithView(latencyView))
 
 	mp := sdkmetric.NewMeterProvider(sdkReaders...)
 	otel.SetMeterProvider(mp)
