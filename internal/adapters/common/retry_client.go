@@ -44,6 +44,21 @@ func GetRetryHook(ctx context.Context) OnRetryHook {
 	return nil
 }
 
+type operationKey struct{}
+
+// WithOperation attaches a logical operation name (e.g. "Search") to the context.
+func WithOperation(ctx context.Context, op string) context.Context {
+	return context.WithValue(ctx, operationKey{}, op)
+}
+
+// GetOperation retrieves the operation name from the context, defaulting to "Other".
+func GetOperation(ctx context.Context) string {
+	if op, ok := ctx.Value(operationKey{}).(string); ok {
+		return op
+	}
+	return "Other"
+}
+
 // ErrorClassifier classifies an HTTP response/error to decide whether it's retriable, and how long to wait.
 type ErrorClassifier func(resp *http.Response, err error) (retryable bool, backoff time.Duration)
 
@@ -160,17 +175,22 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 			statusCode = resp.StatusCode
 		}
 
+		operation := GetOperation(req.Context())
+
 		// Record metrics
 		APIRequestsTotal.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("provider", r.ProviderID),
+			attribute.String("operation", operation),
 			attribute.Int("status_code", statusCode),
 		))
 		APILatency.Record(ctx, latency, metric.WithAttributes(
 			attribute.String("provider", r.ProviderID),
+			attribute.String("operation", operation),
 		))
 		if attempt > 0 {
 			APIRetriesTotal.Add(ctx, 1, metric.WithAttributes(
 				attribute.String("provider", r.ProviderID),
+				attribute.String("operation", operation),
 				attribute.Int("attempt", attempt),
 				attribute.Int("status_code", statusCode),
 			))
@@ -180,6 +200,7 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		span.SetAttributes(
 			attribute.String("http.method", req.Method),
 			attribute.String("http.url", req.URL.String()),
+			attribute.String("http.operation", operation),
 			attribute.Int("http.status_code", statusCode),
 			attribute.Int("retry.attempt", attempt),
 		)

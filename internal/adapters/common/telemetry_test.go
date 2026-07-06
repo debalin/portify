@@ -38,15 +38,18 @@ func TestTelemetry_Disabled(t *testing.T) {
 
 	APIRequestsTotal.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("provider", "youtube"),
+		attribute.String("operation", "Search"),
 		attribute.Int("status_code", 200),
 	))
 
 	APILatency.Record(ctx, 0.25, metric.WithAttributes(
 		attribute.String("provider", "youtube"),
+		attribute.String("operation", "Search"),
 	))
 
 	APIRetriesTotal.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("provider", "youtube"),
+		attribute.String("operation", "Search"),
 		attribute.Int("attempt", 1),
 		attribute.Int("status_code", 429),
 	))
