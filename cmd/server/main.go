@@ -1,15 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
 	"github.com/debalin/portify/gen/go/converter/v1/converterv1connect"
+	"github.com/debalin/portify/internal/adapters/common"
+	"github.com/debalin/portify/internal/adapters/mock"
 	"github.com/debalin/portify/internal/adapters/spotify"
+	"github.com/debalin/portify/internal/adapters/tidal"
 	"github.com/debalin/portify/internal/adapters/youtube"
 	"github.com/debalin/portify/internal/domain"
 	"github.com/debalin/portify/internal/server"
@@ -18,18 +23,32 @@ import (
 )
 
 func main() {
-	// Try loading .env from the current running directory 
+	// Try loading .env from the current running directory
 	// (usually project root if run via "go run ./cmd/server" from the root)
 	_ = godotenv.Load(".env")
+
+	ctx := context.Background()
+	shutdown := common.InitTelemetry(ctx)
+	defer shutdown(ctx)
 
 	mux := http.NewServeMux()
 
 	// 0. Initialize the Provider Registry
 	registry := domain.NewProviderRegistry()
 
-	// Register Real Providers
-	registry.RegisterSource(spotify.NewAdapter())
-	registry.RegisterDestination(youtube.NewAdapter())
+	// Register Providers
+	if os.Getenv("PORTIFY_MOCK_MODE") == "true" {
+		log.Println("⚠️  WARNING: Starting server in MOCK MODE (PORTIFY_MOCK_MODE=true)")
+		registry.RegisterSource(&mock.MockSourceWithTracks{})
+		registry.RegisterDestination(&mock.MockDestination{})
+	} else {
+		registry.RegisterSource(spotify.NewAdapter())
+		registry.RegisterSource(youtube.NewAdapter())
+		registry.RegisterSource(tidal.NewAdapter())
+		registry.RegisterDestination(youtube.NewAdapter())
+		registry.RegisterDestination(spotify.NewAdapter())
+		registry.RegisterDestination(tidal.NewAdapter())
+	}
 
 	// 1. Create our server logic
 	converterHelper := server.NewConverterServer(registry)
@@ -38,6 +57,17 @@ func main() {
 	// The generated code gives us a valid path and handler.
 	path, handler := converterv1connect.NewConverterServiceHandler(converterHelper)
 	mux.Handle(path, handler)
+
+	// Add a simple healthcheck endpoint for testing/orchestration tools like Playwright
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	// Expose OTel metrics via Prometheus
+	if common.PrometheusHandler != nil {
+		mux.Handle("/metrics", common.PrometheusHandler)
+	}
 
 	log.Printf("Bount handler on path: %s", path)
 
@@ -48,8 +78,11 @@ func main() {
 
 	// 4. Start the Server
 	// We use h2c to allow HTTP/2 over cleartext (no TLS) which is great for local dev.
-	port := 8080
-	addr := fmt.Sprintf("localhost:%d", port)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := fmt.Sprintf("0.0.0.0:%s", port)
 	log.Printf("Server listening on http://%s", addr)
 
 	err := http.ListenAndServe(
