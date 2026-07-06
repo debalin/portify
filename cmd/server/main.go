@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"github.com/debalin/portify/gen/go/converter/v1/converterv1connect"
+	"github.com/debalin/portify/internal/adapters/common"
 	"github.com/debalin/portify/internal/adapters/mock"
 	"github.com/debalin/portify/internal/adapters/spotify"
 	"github.com/debalin/portify/internal/adapters/tidal"
@@ -24,6 +26,10 @@ func main() {
 	// Try loading .env from the current running directory
 	// (usually project root if run via "go run ./cmd/server" from the root)
 	_ = godotenv.Load(".env")
+
+	ctx := context.Background()
+	shutdown := common.InitTelemetry(ctx)
+	defer shutdown(ctx)
 
 	mux := http.NewServeMux()
 
@@ -57,6 +63,11 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	// Expose OTel metrics via Prometheus
+	if common.PrometheusHandler != nil {
+		mux.Handle("/metrics", common.PrometheusHandler)
+	}
 
 	log.Printf("Bount handler on path: %s", path)
 
