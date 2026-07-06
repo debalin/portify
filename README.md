@@ -109,6 +109,31 @@ FRONTEND_URL="http://127.0.0.1:5175/"
 VITE_SHOW_DEBUG_PANEL=false
 ```
 
+## 📊 Observability & Telemetry
+
+Portify is fully instrumented with **OpenTelemetry (OTel)** for metrics and tracing:
+
+### 1. Metrics Exposed Locally (Pull Model)
+The Go backend exposes standard Prometheus pull metrics at `/metrics` (default port `8080`).
+
+### 2. Grafana Cloud Integration (Push Model)
+To push traces and metrics automatically to an OTLP-compatible receiver (like Grafana Cloud), configure these environment variables in your `.env` file:
+
+```env
+OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway-prod-us-west-0.grafana.net/otlp"
+OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic <base64_encoded_token>"
+OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
+```
+
+### Metrics Collected
+* `portify_conversions_total`: Total playlist conversion attempts, labeled by `source`, `destination`, and `status` (`success`, `failed`).
+* `portify_tracks_processed_total`: Total number of tracks matched or failed, labeled by `provider` and `status` (`success`, `match_failed`, `insert_failed`).
+* `portify_api_requests_total`: Total outgoing HTTP requests to third-party APIs, labeled by `provider`, `operation` (e.g. `Search`, `PlaylistModify`), and `status_code`.
+* `portify_api_latency_seconds`: High-precision latency histogram of outgoing API requests, configured with custom sub-second bucket views.
+* `portify_api_retries_total`: Total retry attempts triggered by backoff loops, labeled by `provider`, `operation`, `attempt`, and `status_code`.
+
+
+
 ## ⚠️ YouTube API Quota Information
 
 The YouTube Data API v3 enforces a daily budget of **10,000 quota units** per Google Cloud project. Outgoing actions consume this quota at varying rates:
