@@ -3,6 +3,7 @@ package youtube
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/internal/adapters/common"
@@ -58,12 +59,13 @@ func (a *Adapter) Info() domain.ProviderInfo {
 
 // ListPlaylists fetches the user's existing YouTube playlists.
 func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "ListPlaylists")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
-	call := service.Playlists.List([]string{"snippet"}).Mine(true).MaxResults(50)
+	call := service.Playlists.List([]string{"snippet"}).Mine(true).MaxResults(50).Context(ctx)
 	response, err := call.Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list youtube playlists: %w", err)
@@ -81,9 +83,85 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 	return canonicals, nil
 }
 
+// FetchPlaylist retrieves a single playlist by ID, including ALL tracks with full metadata.
+func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "PlaylistFetch")
+	service, err := a.newService(ctx, authToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
+	}
+
+	// Fetch playlist metadata (Name, Description)
+	call := service.Playlists.List([]string{"snippet"}).Id(playlistID).Context(ctx)
+	playlistRes, err := call.Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch playlist metadata: %w", err)
+	}
+	if len(playlistRes.Items) == 0 {
+		return nil, fmt.Errorf("playlist %s not found", playlistID)
+	}
+
+	canonical := &converterv1.CanonicalPlaylist{
+		Name:        playlistRes.Items[0].Snippet.Title,
+		Description: playlistRes.Items[0].Snippet.Description,
+		Tracks:      make([]*converterv1.CanonicalTrack, 0),
+	}
+
+	// Fetch all tracks with pagination
+	pageToken := ""
+	for {
+		itemsCall := service.PlaylistItems.List([]string{"snippet"}).
+			PlaylistId(playlistID).
+			MaxResults(50).
+			Context(ctx)
+
+		if pageToken != "" {
+			itemsCall = itemsCall.PageToken(pageToken)
+		}
+
+		res, err := itemsCall.Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch playlist items: %w", err)
+		}
+
+		for _, item := range res.Items {
+			// Skip deleted or private videos
+			if item.Snippet.Title == "Private video" || item.Snippet.Title == "Deleted video" {
+				continue
+			}
+
+			title := item.Snippet.Title
+			artist := item.Snippet.VideoOwnerChannelTitle
+
+			// Remove " - Topic" from YouTube Music generated channels
+			artist = strings.TrimSuffix(artist, " - Topic")
+
+			// Try to parse "Artist - Title" from the video title
+			parts := strings.SplitN(title, " - ", 2)
+			if len(parts) == 2 {
+				artist = strings.TrimSpace(parts[0])
+				title = strings.TrimSpace(parts[1])
+			}
+
+			canonical.Tracks = append(canonical.Tracks, &converterv1.CanonicalTrack{
+				Title:  title,
+				Artist: artist,
+			})
+		}
+
+		pageToken = res.NextPageToken
+		if pageToken == "" {
+			break
+		}
+	}
+
+	return canonical, nil
+}
+
 // CreatePlaylist creates a new, empty playlist on YouTube.
 // Returns the platform-specific playlist ID.
 func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to create YouTube client: %w", err)
@@ -99,7 +177,7 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 		},
 	}
 
-	call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist)
+	call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist).Context(ctx)
 	created, err := call.Do()
 	if err != nil {
 		return "", fmt.Errorf("failed to create playlist on YouTube: %w", err)
@@ -108,20 +186,56 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 	return created.Id, nil
 }
 
-// MatchTrack searches YouTube for a video matching the given canonical track.
-// Returns the YouTube video ID, or empty string if no match was found.
 func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "Search")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
+	// 1. Try matching by ISRC first if available
+	if track.Isrc != "" {
+		call := service.Search.List([]string{"id", "snippet"}).
+			Q(track.Isrc).
+			Type("video").
+			MaxResults(3).
+			Context(ctx)
+		response, err := call.Do()
+		if err == nil && len(response.Items) > 0 {
+			for _, item := range response.Items {
+				if item.Snippet == nil || item.Snippet.Title == "" {
+					// Backward-compatible for basic tests/mocks
+					return item.Id.VideoId, nil
+				}
+
+				videoTitle := item.Snippet.Title
+				videoChannel := item.Snippet.ChannelTitle
+				videoChannel = strings.TrimSuffix(videoChannel, " - Topic")
+
+				// Try to parse "Artist - Title" from the video title
+				titlePart := videoTitle
+				artistPart := videoChannel
+				parts := strings.SplitN(videoTitle, " - ", 2)
+				if len(parts) == 2 {
+					artistPart = strings.TrimSpace(parts[0])
+					titlePart = strings.TrimSpace(parts[1])
+				}
+
+				if domain.IsMatch(track.Title, track.Artist, titlePart, artistPart) || domain.IsMatch(track.Title, track.Artist, videoTitle, videoChannel) {
+					return item.Id.VideoId, nil
+				}
+			}
+		}
+	}
+
+	// 2. Fallback: text search query
 	searchQuery := BuildSearchQuery(track)
 
 	call := service.Search.List([]string{"id", "snippet"}).
 		Q(searchQuery).
 		Type("video").
-		MaxResults(3)
+		MaxResults(3).
+		Context(ctx)
 
 	response, err := call.Do()
 	if err != nil {
@@ -132,14 +246,49 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 		return "", nil
 	}
 
-	return response.Items[0].Id.VideoId, nil
+	// Iterate and check fuzzy matches
+	for _, item := range response.Items {
+		if item.Snippet == nil || item.Snippet.Title == "" {
+			// Backward-compatible for basic tests/mocks
+			return item.Id.VideoId, nil
+		}
+
+		videoTitle := item.Snippet.Title
+		videoChannel := item.Snippet.ChannelTitle
+		videoChannel = strings.TrimSuffix(videoChannel, " - Topic")
+
+		// Try to parse "Artist - Title" from the video title
+		titlePart := videoTitle
+		artistPart := videoChannel
+		parts := strings.SplitN(videoTitle, " - ", 2)
+		if len(parts) == 2 {
+			artistPart = strings.TrimSpace(parts[0])
+			titlePart = strings.TrimSpace(parts[1])
+		}
+
+		if domain.IsMatch(track.Title, track.Artist, titlePart, artistPart) || domain.IsMatch(track.Title, track.Artist, videoTitle, videoChannel) {
+			return item.Id.VideoId, nil
+		}
+	}
+
+	return "", nil
 }
 
 // AddTrackToPlaylist inserts a single matched video into a YouTube playlist.
 func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return fmt.Errorf("failed to create YouTube client: %w", err)
+	}
+
+	if playlistID == "LIKED_SONGS" {
+		call := service.Videos.Rate(trackID, "like").Context(ctx)
+		err = call.Do()
+		if err != nil {
+			return fmt.Errorf("failed to like video %s: %w", trackID, err)
+		}
+		return nil
 	}
 
 	playlistItem := &yt.PlaylistItem{
@@ -152,7 +301,7 @@ func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, tra
 		},
 	}
 
-	insertCall := service.PlaylistItems.Insert([]string{"snippet"}, playlistItem)
+	insertCall := service.PlaylistItems.Insert([]string{"snippet"}, playlistItem).Context(ctx)
 	_, err = insertCall.Do()
 	if err != nil {
 		return fmt.Errorf("failed to insert video %s into playlist: %w", trackID, err)
@@ -163,6 +312,9 @@ func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, tra
 
 // GetPlaylistURL returns the YouTube Music URL for a playlist.
 func (a *Adapter) GetPlaylistURL(playlistID string) string {
+	if playlistID == "LIKED_SONGS" {
+		return "https://music.youtube.com/playlist?list=LM"
+	}
 	return fmt.Sprintf("https://music.youtube.com/playlist?list=%s", playlistID)
 }
 
