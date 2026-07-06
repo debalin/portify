@@ -22,12 +22,22 @@
 ## 🚀 Current Status
 
 - [x] **Core Canonical Model:** Protobuf-based universal data structures for cross-platform track translation.
-- [x] **Spotify Adapter (Source):** Full support for fetching tracks from public and private Spotify playlists.
-- [x] **YouTube Adapter (Destination):** Algorithmic track matching and YouTube playlist generation.
+- [x] **Spotify Adapter:** Full bidirectional support for fetching tracks from Spotify and generating playlists.
+- [x] **YouTube Adapter:** Full bidirectional support for fetching tracks and generating YouTube playlists with algorithmic track matching.
 - [x] **React Frontend:** Web UI with OAuth login, provider selection, playlist browsing, and streaming conversion progress.
 - [x] **CI/CD Pipeline:** Automated GitHub Actions for linting, testing, and build verification on every push and PR.
 - [x] **Security Scanning:** CodeQL Advanced Security analysis and Dependabot dependency monitoring.
-- [ ] **Additional Providers:** Apple Music, Tidal, Amazon Music, etc.
+- [x] **Tidal Adapter:** Full support for converting to and from Tidal via Open API v2.
+- [ ] **Additional Providers:** Apple Music, Amazon Music, SoundCloud, etc.
+
+## 🎧 Supported Platforms
+
+Portify currently supports seamless conversion between the following music streaming platforms:
+- **Spotify**: Full support (Source & Destination)
+- **YouTube Music**: Full support (Source & Destination)
+- **Tidal**: Full support (Source & Destination)
+
+*Note: More providers like Apple Music and Amazon Music are on the roadmap!*
 
 ## 🛠️ Technology Stack
 
@@ -85,6 +95,8 @@ SPOTIFY_ID="your_spotify_client_id"
 SPOTIFY_SECRET="your_spotify_client_secret"
 YOUTUBE_ID="your_google_cloud_client_id"
 YOUTUBE_SECRET="your_google_cloud_client_secret"
+TIDAL_ID="your_tidal_client_id"
+TIDAL_SECRET="your_tidal_client_secret"
 FRONTEND_URL="http://127.0.0.1:5175/"
 ```
 
@@ -96,6 +108,17 @@ FRONTEND_URL="http://127.0.0.1:5175/"
 # Set to 'true' to display a debug overlay showing raw state and sessionStorage.
 VITE_SHOW_DEBUG_PANEL=false
 ```
+
+## ⚠️ YouTube API Quota Information
+
+The YouTube Data API v3 enforces a daily budget of **10,000 quota units** per Google Cloud project. Outgoing actions consume this quota at varying rates:
+- **Search (MatchTrack):** 100 units per query
+- **Playlist Insert (AddTrackToPlaylist):** 50 units per track
+- **Like Video (LikeTrack / Sync to Liked Songs):** 50 units per track
+
+Converting a single track (Search + Insert/Like) costs a total of **150 units**. Consequently, a single developer key can support ~66 track conversions per day across all users before the quota is exhausted until midnight PST. 
+
+If deploying this in production, developers must request a **Quota Extension** from Google or implement **Search Caching (Issue #26)** to store results database-side and reduce search calls.
 
 ## 🏃 Getting Started
 
@@ -120,7 +143,7 @@ Generate Go server stubs and TypeScript ConnectRPC client code from `.proto` def
 buf generate
 ```
 
-### 3. Run the App
+### 3. Run the App Locally
 
 Start both the Go backend and React frontend with a single command:
 
@@ -128,9 +151,23 @@ Start both the Go backend and React frontend with a single command:
 make dev
 ```
 
-This launches the ConnectRPC server on `http://localhost:8080` and the Vite dev server on `http://127.0.0.1:5175` concurrently. Vite proxies all `/converter.v1.ConverterService/*` requests to the Go backend automatically. Press `Ctrl+C` to stop both.
+This launches the ConnectRPC server on `http://localhost:8080` and the Vite dev server on `http://127.0.0.1:5175` concurrently. Vite proxies all `/converter.v1.ConverterService/*` requests to the Go backend automatically. Press `Ctrl+C` to stop both. You do *not* need Docker or Cloudflare for basic local development!
 
 You can also start them individually with `make dev-backend` or `make dev-frontend`.
+
+### 4. Staging Deployment (Docker + Cloudflare)
+
+We utilize a headless server to host Portify's containerized infrastructure securely on the public internet.
+
+*   **URL:** [https://staging-portify.debalin.dev](https://staging-portify.debalin.dev)
+*   **Infrastructure:** A local Ubuntu server running `docker-compose`. Nginx acts as a reverse proxy serving the compiled React frontend on port 80 and piping all API requests to the isolated Go backend container, completely resolving CORS cross-origin concerns natively.
+*   **Networking:** Instead of exposing local server ports to the web, `cloudflared` runs as a sidecar container, creating a secure Zero Trust tunnel from the internal Docker network out to the public internet, providing fully-managed HTTPS out of the box.
+
+To spin up the staging environment on your host machine:
+```bash
+docker compose up --build -d
+```
+*(Ensure your `CLOUDFLARE_TUNNEL_TOKEN` and `FRONTEND_URL` are set inside `.env` first!)*
 
 ## 🧪 Testing & Quality
 
