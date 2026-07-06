@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 // Mock the API client before importing App
@@ -108,6 +108,88 @@ describe('App', () => {
       const stored = sessionStorage.getItem('portifyDest')
       expect(stored).toBe('youtube')
     })
+  })
+  it('fetches and displays playlists after token is set', async () => {
+    sessionStorage.setItem('portifyAuthTokens', JSON.stringify({ spotify: 'tok', youtube: 'tok2' }))
+    render(<App />)
+    
+    // We should see the mocked playlists "My Playlist" and "Coding Beats"
+    const elements = await screen.findAllByText('My Playlist')
+    expect(elements.length).toBeGreaterThan(0)
+  })
+
+  it('handles the end-to-end conversion flow', async () => {
+    // Setup tokens so we can convert
+    sessionStorage.setItem('portifyAuthTokens', JSON.stringify({ spotify: 'tok', youtube: 'tok2' }))
+    render(<App />)
+    
+    // Wait for playlists to load
+    await screen.findAllByText('My Playlist')
+
+    const convertBtn = screen.getByText(/start conversion/i)
+    fireEvent.click(convertBtn)
+
+    // The mock generator returns fetching, converting, and done states
+    const successMsg = await screen.findByText(/successfully converted/i)
+    expect(successMsg).toBeDefined()
+    
+    // Check if the destination URL link is displayed
+    const link = screen.getByText(/open new playlist/i)
+    expect(link).toHaveProperty('href', 'https://youtube.com/playlist?list=test')
+  })
+
+  it('handles auth errors during fetch Playlists', async () => {
+    sessionStorage.setItem('portifyAuthTokens', JSON.stringify({ spotify: 'bad-tok', youtube: 'bad-tok' }))
+    
+    const { apiClient } = await import('./api')
+    vi.mocked(apiClient.listUserPlaylists).mockRejectedValueOnce(new Error('401 Unauthorized'))
+    
+    render(<App />)
+    
+    // Auth error should trigger token deletion and logout
+    await waitFor(() => {
+      const tokens = JSON.parse(sessionStorage.getItem('portifyAuthTokens') || '{}')
+      expect(tokens.spotify).toBeUndefined()
+    })
+  })
+
+  it('handles conversion errors', async () => {
+    sessionStorage.setItem('portifyAuthTokens', JSON.stringify({ spotify: 'tok', youtube: 'tok2' }))
+    const { apiClient } = await import('./api')
+    
+    vi.mocked(apiClient.convertPlaylist).mockImplementationOnce(async function* () {
+      yield { status: 4, message: 'Internal Server Error' }
+    } as any)
+    
+    render(<App />)
+    await screen.findAllByText('My Playlist')
+    
+    const convertBtn = screen.getByText(/start conversion/i)
+    fireEvent.click(convertBtn)
+    
+    const errMsg = await screen.findByText(/Internal Server Error/i)
+    expect(errMsg).toBeDefined()
+  })
+
+  it('handles non-auth errors during fetch Dest Playlists', async () => {
+    sessionStorage.setItem('portifyAuthTokens', JSON.stringify({ spotify: 'tok', youtube: 'tok2' }))
+    const { apiClient } = await import('./api')
+    
+    vi.mocked(apiClient.listUserPlaylists).mockImplementation(async (req) => {
+      if (req.providerId === 'youtube') throw new Error('Network Error')
+      return { playlists: [{ id: 'pl-1', name: 'My Playlist', description: 'desc' }] } as any
+    })
+    
+    const originalAlert = window.alert
+    window.alert = vi.fn()
+    
+    render(<App />)
+    
+    await waitFor(() => {
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Failed to fetch destination playlists'))
+    })
+    
+    window.alert = originalAlert
   })
 })
 
