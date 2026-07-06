@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -43,6 +42,21 @@ func GetRetryHook(ctx context.Context) OnRetryHook {
 		return hook
 	}
 	return nil
+}
+
+type operationKey struct{}
+
+// WithOperation attaches a logical operation name (e.g. "Search") to the context.
+func WithOperation(ctx context.Context, op string) context.Context {
+	return context.WithValue(ctx, operationKey{}, op)
+}
+
+// GetOperation retrieves the operation name from the context, defaulting to "Other".
+func GetOperation(ctx context.Context) string {
+	if op, ok := ctx.Value(operationKey{}).(string); ok {
+		return op
+	}
+	return "Other"
 }
 
 // ErrorClassifier classifies an HTTP response/error to decide whether it's retriable, and how long to wait.
@@ -161,7 +175,7 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 			statusCode = resp.StatusCode
 		}
 
-		operation := classifyEndpoint(req)
+		operation := GetOperation(req.Context())
 
 		// Record metrics
 		APIRequestsTotal.Add(ctx, 1, metric.WithAttributes(
@@ -236,63 +250,5 @@ func (r *RetryRoundTripper) getBackoff(
 
 	jitter := rand.Int63n(int64(backoff))
 	return time.Duration(jitter)
-}
-
-func classifyEndpoint(req *http.Request) string {
-	path := req.URL.Path
-	method := req.Method
-
-	// Spotify
-	if req.URL.Host == "api.spotify.com" || strings.Contains(req.URL.Host, "spotify") {
-		if strings.Contains(path, "/v1/search") {
-			return "Search"
-		}
-		if strings.Contains(path, "/v1/playlists") {
-			if method == "GET" {
-				return "PlaylistFetch"
-			}
-			return "PlaylistModify"
-		}
-		if strings.Contains(path, "/v1/me/playlists") {
-			return "ListPlaylists"
-		}
-		return "Other"
-	}
-
-	// YouTube
-	if req.URL.Host == "www.googleapis.com" || strings.Contains(path, "/youtube/v3") {
-		if strings.Contains(path, "/youtube/v3/search") {
-			return "Search"
-		}
-		if strings.Contains(path, "/youtube/v3/playlistItems") {
-			return "PlaylistItemModify"
-		}
-		if strings.Contains(path, "/youtube/v3/playlists") {
-			return "PlaylistModify"
-		}
-		if strings.Contains(path, "/youtube/v3/videos/rate") {
-			return "VideoRate"
-		}
-		return "Other"
-	}
-
-	// Tidal
-	if strings.Contains(req.URL.Host, "tidal") || strings.Contains(path, "/v1") {
-		if strings.Contains(path, "/search") {
-			return "Search"
-		}
-		if strings.Contains(path, "/playlists") {
-			if method == "GET" {
-				return "PlaylistFetch"
-			}
-			return "PlaylistModify"
-		}
-		if strings.Contains(path, "/my-playlists") {
-			return "ListPlaylists"
-		}
-		return "Other"
-	}
-
-	return "Other"
 }
 

@@ -125,6 +125,7 @@ func (a *Adapter) doRequest(ctx context.Context, authToken, method, path string,
 
 // ListPlaylists fetches the user's existing Tidal playlists.
 func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "ListPlaylists")
 	// Use the correct v2 endpoint discovered from Tidal API spec
 	// /playlists?filter[owners.id]=me fetches playlists created by the user
 	endpoint := "/playlists?filter[owners.id]=me"
@@ -163,6 +164,7 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 
 // FetchPlaylist retrieves a single playlist by ID
 func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "PlaylistFetch")
 	// Request tracks and their associated artists and albums
 	resp, err := a.doRequest(ctx, authToken, http.MethodGet, "/playlists/"+playlistID+"?include=items,items.artists,items.albums", nil)
 	if err != nil {
@@ -256,6 +258,7 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 }
 
 func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	payload := map[string]interface{}{
 		"data": map[string]interface{}{
 			"type": "playlists",
@@ -283,6 +286,7 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 }
 
 func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "Search")
 	// 1. Try matching by ISRC first if available
 	if track.Isrc != "" {
 		endpoint := fmt.Sprintf("/tracks?filter[isrc]=%s&countryCode=US", url.QueryEscape(track.Isrc))
@@ -371,6 +375,7 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 }
 
 func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	payload := map[string]interface{}{
 		"data": []map[string]interface{}{
 			{

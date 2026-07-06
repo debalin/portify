@@ -59,12 +59,13 @@ func (a *Adapter) Info() domain.ProviderInfo {
 
 // ListPlaylists fetches the user's existing YouTube playlists.
 func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "ListPlaylists")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
-	call := service.Playlists.List([]string{"snippet"}).Mine(true).MaxResults(50)
+	call := service.Playlists.List([]string{"snippet"}).Mine(true).MaxResults(50).Context(ctx)
 	response, err := call.Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list youtube playlists: %w", err)
@@ -84,13 +85,14 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 
 // FetchPlaylist retrieves a single playlist by ID, including ALL tracks with full metadata.
 func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "PlaylistFetch")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
 	// Fetch playlist metadata (Name, Description)
-	call := service.Playlists.List([]string{"snippet"}).Id(playlistID)
+	call := service.Playlists.List([]string{"snippet"}).Id(playlistID).Context(ctx)
 	playlistRes, err := call.Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch playlist metadata: %w", err)
@@ -110,7 +112,8 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 	for {
 		itemsCall := service.PlaylistItems.List([]string{"snippet"}).
 			PlaylistId(playlistID).
-			MaxResults(50)
+			MaxResults(50).
+			Context(ctx)
 
 		if pageToken != "" {
 			itemsCall = itemsCall.PageToken(pageToken)
@@ -158,6 +161,7 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 // CreatePlaylist creates a new, empty playlist on YouTube.
 // Returns the platform-specific playlist ID.
 func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to create YouTube client: %w", err)
@@ -173,7 +177,7 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 		},
 	}
 
-	call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist)
+	call := service.Playlists.Insert([]string{"snippet", "status"}, ytPlaylist).Context(ctx)
 	created, err := call.Do()
 	if err != nil {
 		return "", fmt.Errorf("failed to create playlist on YouTube: %w", err)
@@ -183,6 +187,7 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 }
 
 func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "Search")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to create YouTube client: %w", err)
@@ -193,7 +198,8 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 		call := service.Search.List([]string{"id", "snippet"}).
 			Q(track.Isrc).
 			Type("video").
-			MaxResults(3)
+			MaxResults(3).
+			Context(ctx)
 		response, err := call.Do()
 		if err == nil && len(response.Items) > 0 {
 			for _, item := range response.Items {
@@ -228,7 +234,8 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 	call := service.Search.List([]string{"id", "snippet"}).
 		Q(searchQuery).
 		Type("video").
-		MaxResults(3)
+		MaxResults(3).
+		Context(ctx)
 
 	response, err := call.Do()
 	if err != nil {
@@ -269,13 +276,14 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 
 // AddTrackToPlaylist inserts a single matched video into a YouTube playlist.
 func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	service, err := a.newService(ctx, authToken)
 	if err != nil {
 		return fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
 	if playlistID == "LIKED_SONGS" {
-		call := service.Videos.Rate(trackID, "like")
+		call := service.Videos.Rate(trackID, "like").Context(ctx)
 		err = call.Do()
 		if err != nil {
 			return fmt.Errorf("failed to like video %s: %w", trackID, err)
@@ -293,7 +301,7 @@ func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, tra
 		},
 	}
 
-	insertCall := service.PlaylistItems.Insert([]string{"snippet"}, playlistItem)
+	insertCall := service.PlaylistItems.Insert([]string{"snippet"}, playlistItem).Context(ctx)
 	_, err = insertCall.Do()
 	if err != nil {
 		return fmt.Errorf("failed to insert video %s into playlist: %w", trackID, err)

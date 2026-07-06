@@ -48,6 +48,7 @@ func (a *Adapter) Info() domain.ProviderInfo {
 }
 
 func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "ListPlaylists")
 	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
@@ -69,6 +70,7 @@ func (a *Adapter) ListPlaylists(ctx context.Context, authToken string) ([]*conve
 
 // FetchPlaylist fetches a complete playlist from Spotify and maps it to the generic CanonicalPlaylist
 func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
+	ctx = common.WithOperation(ctx, "PlaylistFetch")
 	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
@@ -133,6 +135,7 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 // CreatePlaylist creates a new, empty playlist on Spotify.
 // Returns the platform-specific playlist ID.
 func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description string, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
@@ -168,6 +171,7 @@ func (a *Adapter) CreatePlaylist(ctx context.Context, name string, description s
 }
 
 func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, authToken string) (string, error) {
+	ctx = common.WithOperation(ctx, "Search")
 	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
@@ -233,6 +237,7 @@ func (a *Adapter) MatchTrack(ctx context.Context, track *converterv1.CanonicalTr
 
 // AddTrackToPlaylist inserts a single matched track into a playlist.
 func (a *Adapter) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	ctx = common.WithOperation(ctx, "PlaylistModify")
 	httpClient := a.GetHTTPClient(ctx, authToken)
 	client := sp.New(httpClient)
 
