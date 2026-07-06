@@ -10,7 +10,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/converter.v1.ConverterService': {
-        target: 'http://localhost:8080',
+        target: 'http://127.0.0.1:8080',
         changeOrigin: true,
       }
     }
@@ -18,5 +18,17 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-  }
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    pool: 'forks',
+    forks: {
+      singleFork: true,
+      execArgv: ['--max-old-space-size=8192'],
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/gen/**', 'src/main.tsx', 'src/vite-env.d.ts'],
+    }
+  } as any
 })
