@@ -251,4 +251,3 @@ func (r *RetryRoundTripper) getBackoff(
 	jitter := rand.Int63n(int64(backoff))
 	return time.Duration(jitter)
 }
-
