@@ -8,6 +8,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
@@ -34,10 +35,15 @@ var (
 // InitTelemetry initializes the OTel Tracing and Metrics pipelines.
 // Returns a shutdown function to flush data on server exit.
 func InitTelemetry(ctx context.Context) func(context.Context) {
-	// Create resource
+	// Create resource with environment attribute
+	env := os.Getenv("PORTIFY_ENV")
+	if env == "" {
+		env = "local"
+	}
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String("portify-backend"),
+			attribute.String("environment", env),
 		),
 	)
 	if err != nil {

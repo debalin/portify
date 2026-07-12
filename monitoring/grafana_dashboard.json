@@ -92,7 +92,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(portify_conversions_total{status=\"success\"}) or on() vector(0)",
+          "expr": "sum(portify_conversions_total{environment=~\"^$environment$\", status=\"success\"}) or on() vector(0)",
           "legendFormat": "Successful Conversions",
           "range": true,
           "refId": "A"
@@ -160,7 +160,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(portify_conversions_total{status=\"failed\"}) or on() vector(0)",
+          "expr": "sum(portify_conversions_total{environment=~\"^$environment$\", status=\"failed\"}) or on() vector(0)",
           "legendFormat": "Failed Conversions",
           "range": true,
           "refId": "A"
@@ -230,7 +230,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(portify_conversions_total) by (status)",
+          "expr": "sum(portify_conversions_total{environment=~\"^$environment$\"}) by (status)",
           "legendFormat": "{{status}}",
           "range": true,
           "refId": "A"
@@ -268,7 +268,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(portify_conversions_total[5m])) by (source, destination, status)",
+          "expr": "sum(rate(portify_conversions_total{environment=~\"^$environment$\"}[5m])) by (source, destination, status)",
           "legendFormat": "{{source}} \u2794 {{destination}} ({{status}})",
           "range": true,
           "refId": "A"
@@ -327,7 +327,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(portify_tracks_processed_total) by (provider, status)",
+          "expr": "sum(portify_tracks_processed_total{environment=~\"^$environment$\"}) by (provider, status)",
           "legendFormat": "{{provider}} - {{status}}",
           "range": true,
           "refId": "A"
@@ -377,7 +377,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(portify_api_latency_seconds_bucket[5m])) by (le, provider, operation))",
+          "expr": "histogram_quantile(0.95, sum(rate(portify_api_latency_seconds_bucket{environment=~\"^$environment$\"}[5m])) by (le, provider, operation))",
           "legendFormat": "p95 {{provider}} ({{operation}})",
           "range": true,
           "refId": "A"
@@ -415,7 +415,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(portify_api_requests_total[5m])) by (provider, operation, status_code)",
+          "expr": "sum(rate(portify_api_requests_total{environment=~\"^$environment$\"}[5m])) by (provider, operation, status_code)",
           "legendFormat": "{{provider}} [{{operation}}] ({{status_code}})",
           "range": true,
           "refId": "A"
@@ -465,7 +465,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(portify_api_retries_total[5m])) by (provider, operation, attempt, status_code)",
+          "expr": "sum(rate(portify_api_retries_total{environment=~\"^$environment$\"}[5m])) by (provider, operation, attempt, status_code)",
           "legendFormat": "{{provider}} [{{operation}}] (attempt {{attempt}}, code {{status_code}})",
           "range": true,
           "refId": "A"
@@ -484,6 +484,26 @@
   ],
   "templating": {
     "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values(environment)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "environment",
+        "query": {
+          "query": "label_values(environment)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query"
+      },
       {
         "current": {},
         "hide": 0,
