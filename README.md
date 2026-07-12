@@ -98,6 +98,7 @@ YOUTUBE_SECRET="your_google_cloud_client_secret"
 TIDAL_ID="your_tidal_client_id"
 TIDAL_SECRET="your_tidal_client_secret"
 FRONTEND_URL="http://127.0.0.1:5175/"
+PORTIFY_ENV="local" # Defines telemetry environment (e.g. local, staging, production)
 ```
 
 > **Important:** The `FRONTEND_URL` must exactly match the authorized Redirect URI configured in both the Spotify and Google Cloud developer consoles (including the trailing slash).
@@ -123,6 +124,7 @@ To push traces and metrics automatically to an OTLP-compatible receiver (like Gr
 OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway-prod-us-west-0.grafana.net/otlp"
 OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic <base64_encoded_token>"
 OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
+PORTIFY_ENV="staging" # Labels all metrics/spans with 'environment' (defaults to 'local' if omitted)
 ```
 
 ### Metrics Collected
