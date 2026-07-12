@@ -39,7 +39,7 @@ jobs:
       run: go test -v -coverprofile=coverage.out ./...
 
     - name: Upload Go Coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.out
@@ -72,7 +72,7 @@ jobs:
       run: npx vitest run --coverage
 
     - name: Upload Frontend Coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: frontend/coverage/lcov.info
