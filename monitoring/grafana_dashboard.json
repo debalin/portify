@@ -1,583 +1,541 @@
 {
-  "annotations": {
-    "list": []
-  },
-  "cursorSync": 0,
-  "editable": true,
-  "elements": [],
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
-  "id": null,
-  "layout": {},
-  "links": [],
-  "liveNow": false,
-  "panels": [
+  "annotations": [
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "title": "🎵 Portify - Playlist Conversion Overview",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 1
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value"
-      },
-      "targets": [
-        {
+      "kind": "AnnotationQuery",
+      "spec": {
+        "builtIn": true,
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "query": {
           "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "name": "-- Grafana --"
           },
-          "editorMode": "code",
-          "expr": "sum(portify_conversions_total{environment=~\"^$environment$\", status=\"success\"}) or on() vector(0)",
-          "legendFormat": "Successful Conversions",
-          "range": true,
-          "refId": "A"
+          "group": "grafana",
+          "kind": "DataQuery",
+          "spec": {},
+          "version": "v0"
         }
-      ],
-      "title": "Successful Conversions",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "sum(portify_conversions_total{environment=~\"^$environment$\", status=\"failed\"}) or on() vector(0)",
-          "legendFormat": "Failed Conversions",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Failed Conversions",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": [],
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 12,
-        "y": 1
-      },
-      "id": 4,
-      "options": {
-        "displayLabels": [
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showValues": true,
-          "values": [
-            "value"
-          ]
-        },
-        "pieType": "donut",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "sum(portify_conversions_total{environment=~\"^$environment$\"}) by (status)",
-          "legendFormat": "{{status}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Conversion Success Rate",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth"
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 5
-      },
-      "id": 5,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(portify_conversions_total{environment=~\"^$environment$\"}[5m])) by (source, destination, status)",
-          "legendFormat": "{{source}} \u2794 {{destination}} ({{status}})",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Conversions Rate (5m average)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": [],
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 5
-      },
-      "id": 6,
-      "options": {
-        "displayMode": "basic",
-        "maxLimit": null,
-        "minLimit": null,
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "sum(portify_tracks_processed_total{environment=~\"^$environment$\"}) by (provider, status)",
-          "legendFormat": "{{provider}} - {{status}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Tracks Processed by Status",
-      "type": "bargauge"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 13
-      },
-      "id": 7,
-      "title": "\u26a1 Outgoing API Performance & Latency",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth"
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 14
-      },
-      "id": 8,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(portify_api_latency_seconds_bucket{environment=~\"^$environment$\"}[5m])) by (le, provider, operation))",
-          "legendFormat": "p95 {{provider}} ({{operation}})",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "95th Percentile API Latency",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 14
-      },
-      "id": 9,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(portify_api_requests_total{environment=~\"^$environment$\"}[5m])) by (provider, operation, status_code)",
-          "legendFormat": "{{provider}} [{{operation}}] ({{status_code}})",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "API Request Rate by Operation & Status",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 22
-      },
-      "id": 10,
-      "title": "\ud83d\udee1\ufe0f Rate Limiting & Reliability",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth"
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 23
-      },
-      "id": 11,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(portify_api_retries_total{environment=~\"^$environment$\"}[5m])) by (provider, operation, attempt, status_code)",
-          "legendFormat": "{{provider}} [{{operation}}] (attempt {{attempt}}, code {{status_code}})",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "API Request Retries (Rate-Limit Backoffs)",
-      "type": "timeseries"
+      }
     }
   ],
-  "preload": false,
-  "refresh": "10s",
-  "schemaVersion": 39,
-  "style": "dark",
-  "tags": [
-    "portify",
-    "otel"
-  ],
-  "templating": {
-    "list": [
-      {
-        "current": {},
+  "cursorSync": "Off",
+  "editable": true,
+  "elements": {
+    "1": {
+      "kind": "Panel",
+      "spec": {
+        "type": "row",
+        "title": "🎵 Portify - Playlist Conversion Overview"
+      }
+    },
+    "2": {
+      "kind": "Panel",
+      "spec": {
+        "type": "stat",
+        "title": "Successful Conversions",
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(environment)",
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "environment",
-        "query": {
-          "query": "label_values(environment)",
-          "refId": "StandardVariableQuery"
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                }
+              ]
+            },
+            "unit": "none"
+          }
         },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "type": "query"
-      },
-      {
-        "current": {},
-        "hide": 0,
-        "includeAll": false,
-        "label": "Data Source",
-        "multi": false,
-        "name": "DS_PROMETHEUS",
-        "query": "prometheus",
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "type": "datasource"
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ]
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "sum(portify_conversions_total{environment=~\"^$environment$\", status=\"success\"}) or on() vector(0)",
+            "legendFormat": "Successful Conversions",
+            "range": true,
+            "refId": "A"
+          }
+        ]
       }
-    ]
+    },
+    "3": {
+      "kind": "Panel",
+      "spec": {
+        "type": "stat",
+        "title": "Failed Conversions",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                }
+              ]
+            },
+            "unit": "none"
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ]
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "sum(portify_conversions_total{environment=~\"^$environment$\", status=\"failed\"}) or on() vector(0)",
+            "legendFormat": "Failed Conversions",
+            "range": true,
+            "refId": "A"
+          }
+        ]
+      }
+    },
+    "4": {
+      "kind": "Panel",
+      "spec": {
+        "type": "piechart",
+        "title": "Conversion Success Rate",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showValues": true,
+            "values": [
+              "value"
+            ]
+          },
+          "pieType": "donut",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ]
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "sum(portify_conversions_total{environment=~\"^$environment$\"}) by (status)",
+            "legendFormat": "{{status}}",
+            "range": true,
+            "refId": "A"
+          }
+        ]
+      }
+    },
+    "5": {
+      "kind": "Panel",
+      "spec": {
+        "type": "timeseries",
+        "title": "Conversions Rate (5m average)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth"
+            },
+            "unit": "short"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "sum(rate(portify_conversions_total{environment=~\"^$environment$\"}[5m])) by (source, destination, status)",
+            "legendFormat": "{{source}} \u2794 {{destination}} ({{status}})",
+            "range": true,
+            "refId": "A"
+          }
+        ]
+      }
+    },
+    "6": {
+      "kind": "Panel",
+      "spec": {
+        "type": "bargauge",
+        "title": "Tracks Processed by Status",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "options": {
+          "displayMode": "basic",
+          "orientation": "horizontal",
+          "showUnfilled": true,
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ]
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "sum(portify_tracks_processed_total{environment=~\"^$environment$\"}) by (provider, status)",
+            "legendFormat": "{{provider}} - {{status}}",
+            "range": true,
+            "refId": "A"
+          }
+        ]
+      }
+    },
+    "7": {
+      "kind": "Panel",
+      "spec": {
+        "type": "row",
+        "title": "⚡ Outgoing API Performance & Latency"
+      }
+    },
+    "8": {
+      "kind": "Panel",
+      "spec": {
+        "type": "timeseries",
+        "title": "95th Percentile API Latency",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth"
+            },
+            "unit": "s"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "histogram_quantile(0.95, sum(rate(portify_api_latency_seconds_bucket{environment=~\"^$environment$\"}[5m])) by (le, provider, operation))",
+            "legendFormat": "p95 {{provider}} ({{operation}})",
+            "range": true,
+            "refId": "A"
+          }
+        ]
+      }
+    },
+    "9": {
+      "kind": "Panel",
+      "spec": {
+        "type": "timeseries",
+        "title": "API Request Rate by Operation & Status",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth"
+            },
+            "unit": "reqps"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "sum(rate(portify_api_requests_total{environment=~\"^$environment$\"}[5m])) by (provider, operation, status_code)",
+            "legendFormat": "{{provider}} [{{operation}}] ({{status_code}})",
+            "range": true,
+            "refId": "A"
+          }
+        ]
+      }
+    },
+    "10": {
+      "kind": "Panel",
+      "spec": {
+        "type": "row",
+        "title": "🛡️ Rate Limiting & Reliability"
+      }
+    },
+    "11": {
+      "kind": "Panel",
+      "spec": {
+        "type": "timeseries",
+        "title": "API Request Retries (Rate-Limit Backoffs)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth"
+            },
+            "unit": "short"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "code",
+            "expr": "sum(rate(portify_api_retries_total{environment=~\"^$environment$\"}[5m])) by (provider, operation, attempt, status_code)",
+            "legendFormat": "{{provider}} [{{operation}}] (attempt {{attempt}}, code {{status_code}})",
+            "range": true,
+            "refId": "A"
+          }
+        ]
+      }
+    }
   },
-  "time": {
-    "from": "now-1h",
-    "to": "now"
+  "layout": {
+    "kind": "GridLayout",
+    "spec": {
+      "items": [
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "1"
+          },
+          "x": 0,
+          "y": 0,
+          "width": 24,
+          "height": 1
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "2"
+          },
+          "x": 0,
+          "y": 1,
+          "width": 6,
+          "height": 4
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "3"
+          },
+          "x": 6,
+          "y": 1,
+          "width": 6,
+          "height": 4
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "4"
+          },
+          "x": 12,
+          "y": 1,
+          "width": 12,
+          "height": 4
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "5"
+          },
+          "x": 0,
+          "y": 5,
+          "width": 12,
+          "height": 8
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "6"
+          },
+          "x": 12,
+          "y": 5,
+          "width": 12,
+          "height": 8
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "7"
+          },
+          "x": 0,
+          "y": 13,
+          "width": 24,
+          "height": 1
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "8"
+          },
+          "x": 0,
+          "y": 14,
+          "width": 12,
+          "height": 8
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "9"
+          },
+          "x": 12,
+          "y": 14,
+          "width": 12,
+          "height": 8
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "10"
+          },
+          "x": 0,
+          "y": 22,
+          "width": 24,
+          "height": 1
+        },
+        {
+          "ref": {
+            "kind": "Panel",
+            "id": "11"
+          },
+          "x": 0,
+          "y": 23,
+          "width": 24,
+          "height": 8
+        }
+      ]
+    }
   },
-  "timepicker": {
-    "refresh_intervals": [
+  "links": [],
+  "liveNow": false,
+  "preferences": {
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": []
+      }
+    }
+  },
+  "preload": false,
+  "tags": [
+    "portify",
+    "otel"
+  ],
+  "timeSettings": {
+    "autoRefresh": "",
+    "autoRefreshIntervals": [
       "5s",
       "10s",
       "30s",
       "1m",
-      "5m"
-    ],
-    "time_options": [
       "5m",
       "15m",
+      "30m",
       "1h",
-      "6h",
-      "12h",
-      "24h"
-    ]
-  },
-  "timeSettings": {
+      "2h",
+      "1d"
+    ],
+    "fiscalYearStartMonth": 0,
     "from": "now-1h",
-    "to": "now",
-    "autoRefresh": false,
-    "autoRefreshIntervals": [],
     "hideTimepicker": false,
-    "fiscalYearStartMonth": 0
+    "timezone": "browser",
+    "to": "now"
   },
-  "timezone": "browser",
   "title": "Portify Telemetry Dashboard",
-  "uid": "portify-telemetry",
   "variables": [
     {
-      "current": {},
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "definition": "label_values(environment)",
-      "hide": 0,
-      "includeAll": true,
-      "multi": true,
-      "name": "environment",
-      "query": {
+      "kind": "QueryVariable",
+      "spec": {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
         "query": "label_values(environment)",
-        "refId": "StandardVariableQuery"
-      },
-      "refresh": 1,
-      "regex": "",
-      "skipUrlSync": false,
-      "type": "query"
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1
+      }
     },
     {
-      "current": {},
-      "hide": 0,
-      "includeAll": false,
-      "label": "Data Source",
-      "multi": false,
-      "name": "DS_PROMETHEUS",
-      "query": "prometheus",
-      "refresh": 1,
-      "regex": "",
-      "skipUrlSync": false,
-      "type": "datasource"
+      "kind": "DataSourceVariable",
+      "spec": {
+        "name": "DS_PROMETHEUS",
+        "label": "Data Source",
+        "type": "datasource",
+        "pluginId": "prometheus",
+        "multi": false,
+        "includeAll": false
+      }
     }
-  ],
-  "version": 1,
-  "weekStart": ""
+  ]
 }
