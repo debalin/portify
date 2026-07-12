@@ -418,7 +418,7 @@
                     "spec": {
                       "editorMode": "code",
                       "expr": "sum(rate(portify_conversions_total{environment=~\"^$environment$\"}[5m])) by (source, destination, status)",
-                      "legendFormat": "{{source}} \u2794 {{destination}} ({{status}})",
+                      "legendFormat": "{{source}} ➔ {{destination}} ({{status}})",
                       "range": true
                     },
                     "version": "v0"
@@ -1035,7 +1035,12 @@
     {
       "kind": "QueryVariable",
       "spec": {
-        "current": {},
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
         "datasource": {
           "name": "${DS_PROMETHEUS}"
         },
@@ -1046,7 +1051,17 @@
         "multi": true,
         "name": "environment",
         "options": [],
-        "query": "label_values(environment)",
+        "query": {
+          "datasource": {
+            "name": "${DS_PROMETHEUS}"
+          },
+          "group": "prometheus",
+          "kind": "DataQuery",
+          "spec": {
+            "expr": "label_values(environment)"
+          },
+          "version": "v0"
+        },
         "refresh": "onDashboardLoad",
         "regex": "",
         "skipUrlSync": false
