@@ -532,47 +532,52 @@
       "24h"
     ]
   },
-  "timeSettings": {},
+  "timeSettings": {
+    "from": "now-1h",
+    "to": "now",
+    "autoRefresh": false,
+    "autoRefreshIntervals": [],
+    "hideTimepicker": false,
+    "fiscalYearStartMonth": 0
+  },
   "timezone": "browser",
   "title": "Portify Telemetry Dashboard",
   "uid": "portify-telemetry",
-  "variables": {
-    "list": [
-      {
-        "current": {},
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
-        },
-        "definition": "label_values(environment)",
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "environment",
-        "query": {
-          "query": "label_values(environment)",
-          "refId": "StandardVariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "type": "query"
+  "variables": [
+    {
+      "current": {},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
       },
-      {
-        "current": {},
-        "hide": 0,
-        "includeAll": false,
-        "label": "Data Source",
-        "multi": false,
-        "name": "DS_PROMETHEUS",
-        "query": "prometheus",
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "type": "datasource"
-      }
-    ]
-  },
+      "definition": "label_values(environment)",
+      "hide": 0,
+      "includeAll": true,
+      "multi": true,
+      "name": "environment",
+      "query": {
+        "query": "label_values(environment)",
+        "refId": "StandardVariableQuery"
+      },
+      "refresh": 1,
+      "regex": "",
+      "skipUrlSync": false,
+      "type": "query"
+    },
+    {
+      "current": {},
+      "hide": 0,
+      "includeAll": false,
+      "label": "Data Source",
+      "multi": false,
+      "name": "DS_PROMETHEUS",
+      "query": "prometheus",
+      "refresh": 1,
+      "regex": "",
+      "skipUrlSync": false,
+      "type": "datasource"
+    }
+  ],
   "version": 1,
   "weekStart": ""
 }
