@@ -1066,7 +1066,7 @@
         "refresh": "onDashboardLoad",
         "regex": "",
         "skipUrlSync": false,
-        "sort": 0
+        "sort": "disabled"
       }
     },
     {
