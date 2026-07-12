@@ -1,23 +1,14 @@
 {
   "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": {
-          "type": "datasource",
-          "uid": "grafanacloud-prom"
-        },
-        "enable": true,
-        "hide": true,
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
+    "list": []
   },
+  "cursorSync": 0,
   "editable": true,
+  "elements": [],
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
+  "layout": {},
   "links": [],
   "liveNow": false,
   "panels": [
@@ -475,6 +466,7 @@
       "type": "timeseries"
     }
   ],
+  "preload": false,
   "refresh": "10s",
   "schemaVersion": 39,
   "style": "dark",
@@ -540,9 +532,47 @@
       "24h"
     ]
   },
+  "timeSettings": {},
   "timezone": "browser",
   "title": "Portify Telemetry Dashboard",
   "uid": "portify-telemetry",
+  "variables": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values(environment)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "environment",
+        "query": {
+          "query": "label_values(environment)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Data Source",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
   "version": 1,
   "weekStart": ""
 }
