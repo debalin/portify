@@ -1035,6 +1035,7 @@
     {
       "kind": "QueryVariable",
       "spec": {
+        "allowCustomValue": false,
         "current": {
           "text": "All",
           "value": [
@@ -1064,7 +1065,8 @@
         },
         "refresh": "onDashboardLoad",
         "regex": "",
-        "skipUrlSync": false
+        "skipUrlSync": false,
+        "sort": 0
       }
     },
     {
