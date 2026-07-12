@@ -16,6 +16,10 @@ func TestTelemetry_Disabled(t *testing.T) {
 	os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	defer os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", origEndpoint)
 
+	origEnv := os.Getenv("PORTIFY_ENV")
+	os.Setenv("PORTIFY_ENV", "test-local")
+	defer os.Setenv("PORTIFY_ENV", origEnv)
+
 	ctx := context.Background()
 	shutdown := InitTelemetry(ctx)
 	defer shutdown(ctx)
