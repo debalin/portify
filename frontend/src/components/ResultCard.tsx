@@ -10,6 +10,7 @@ interface ResultCardProps {
   progress: {
     converted: number
     total: number
+    skipped?: number
   } | null
   destPlaylistId: string
 }
@@ -31,7 +32,10 @@ export function ResultCard({ result, progress, destPlaylistId }: ResultCardProps
       <div>
         <p className="result-msg">{result.message}</p>
         {showStats && (
-          <p className="result-stats">Converted {progress.converted} of {progress.total} tracks.</p>
+          <p className="result-stats">
+            Converted {progress.converted} of {progress.total} tracks
+            {progress.skipped && progress.skipped > 0 ? ` (${progress.skipped} already in playlist, skipped)` : ''}.
+          </p>
         )}
         {result.url && (
           <a href={result.url} target="portify_dest" rel="noreferrer" className="result-link">

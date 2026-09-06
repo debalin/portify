@@ -4,6 +4,7 @@ interface ConversionProgressProps {
     message: string
     converted: number
     total: number
+    skipped?: number
   } | null
 }
 
@@ -13,7 +14,8 @@ export function ConversionProgress({ progress }: ConversionProgressProps) {
   }
 
   const showPercentage = progress.total > 0
-  const percentage = showPercentage ? Math.round((progress.converted / progress.total) * 100) : 0
+  const processed = progress.converted + (progress.skipped || 0)
+  const percentage = showPercentage ? Math.round((processed / progress.total) * 100) : 0
 
   return (
     <div className="progress-container">

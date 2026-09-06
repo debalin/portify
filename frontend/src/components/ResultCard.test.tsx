@@ -49,4 +49,16 @@ describe('ResultCard', () => {
     )
     expect(screen.getByRole('link', { name: /open liked music/i })).toHaveAttribute('href', 'https://music.youtube.com/playlist?list=LM')
   })
+
+  it('renders skipped track statistics when skipped tracks are present', () => {
+    render(
+      <ResultCard 
+        result={{ success: true, message: 'Done conversion', url: 'https://youtube.com/playlist' }}
+        progress={{ converted: 3, total: 5, skipped: 2 }}
+        destPlaylistId="existing-pl"
+      />
+    )
+    expect(screen.getByText(/Converted 3 of 5 tracks/)).toBeInTheDocument()
+    expect(screen.getByText(/2 already in playlist, skipped/)).toBeInTheDocument()
+  })
 })

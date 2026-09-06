@@ -2,6 +2,8 @@ package domain
 
 import (
 	"strings"
+
+	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 )
 
 // LevenshteinDistance calculates the Levenshtein distance between two strings.
@@ -114,10 +116,54 @@ func IsMatch(targetTitle, targetArtist, candidateTitle, candidateArtist string) 
 	// Accept title if similarity is >= 0.75
 	titleMatches := titleSim >= 0.75
 
+	// Check if one title is a prefix of the other with only digits/spaces remaining (e.g. year suffixes)
+	if !titleMatches && len(cleanTargetTitle) >= 3 && len(cleanCandidateTitle) >= 3 {
+		shorter, longer := cleanTargetTitle, cleanCandidateTitle
+		if len(shorter) > len(longer) {
+			shorter, longer = longer, shorter
+		}
+		if strings.HasPrefix(longer, shorter) {
+			rest := strings.TrimSpace(longer[len(shorter):])
+			isOnlyDigits := true
+			for _, r := range rest {
+				if r < '0' || r > '9' {
+					isOnlyDigits = false
+					break
+				}
+			}
+			if isOnlyDigits {
+				titleMatches = true
+			}
+		}
+	}
+
 	// Accept artist if similarity is >= 0.75, or one contains the other
 	artistMatches := artistSim >= 0.75 ||
 		strings.Contains(cleanCandidateArtist, cleanTargetArtist) ||
 		strings.Contains(cleanTargetArtist, cleanCandidateArtist)
 
 	return titleMatches && artistMatches
+}
+
+// TrackExistsInList checks if a candidate track already exists in a slice of existing tracks.
+// Matching is determined first by exact non-empty ISRC equality, and then by fuzzy title/artist matching.
+func TrackExistsInList(candidate *converterv1.CanonicalTrack, existing []*converterv1.CanonicalTrack) bool {
+	if candidate == nil || len(existing) == 0 {
+		return false
+	}
+
+	for _, t := range existing {
+		if t == nil {
+			continue
+		}
+		// 1. Exact ISRC match if both are available and non-empty
+		if candidate.Isrc != "" && t.Isrc != "" && strings.EqualFold(strings.TrimSpace(candidate.Isrc), strings.TrimSpace(t.Isrc)) {
+			return true
+		}
+		// 2. Fuzzy metadata match on title and artist
+		if IsMatch(candidate.Title, candidate.Artist, t.Title, t.Artist) {
+			return true
+		}
+	}
+	return false
 }

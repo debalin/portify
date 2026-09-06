@@ -201,3 +201,24 @@ func (d *MockFailingDestination) AddTrackToPlaylist(_ context.Context, _ string,
 func (d *MockFailingDestination) GetPlaylistURL(playlistID string) string {
 	return "http://fail"
 }
+
+// --- MockFullDestination ---
+// Implements both PlaylistSource and PlaylistSink so destination can be queried for existing tracks.
+type MockFullDestination struct {
+	MockDestination
+	ExistingTracks []*converterv1.CanonicalTrack
+	AddedTracks    []string
+}
+
+func (d *MockFullDestination) FetchPlaylist(ctx context.Context, playlistID string, authToken string) (*converterv1.CanonicalPlaylist, error) {
+	return &converterv1.CanonicalPlaylist{
+		Id:     playlistID,
+		Name:   "Existing Destination Playlist",
+		Tracks: d.ExistingTracks,
+	}, nil
+}
+
+func (d *MockFullDestination) AddTrackToPlaylist(ctx context.Context, playlistID string, trackID string, authToken string) error {
+	d.AddedTracks = append(d.AddedTracks, trackID)
+	return nil
+}

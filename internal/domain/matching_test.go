@@ -2,6 +2,8 @@ package domain
 
 import (
 	"testing"
+
+	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 )
 
 func TestLevenshteinDistance(t *testing.T) {
@@ -87,5 +89,72 @@ func TestIsMatch(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("IsMatch(%q, %q, %q, %q) = %t; want %t", tt.targetTitle, tt.targetArtist, tt.candidateTitle, tt.candidateArtist, got, tt.expected)
 		}
+	}
+}
+
+func TestTrackExistsInList(t *testing.T) {
+	existing := []*converterv1.CanonicalTrack{
+		{Title: "Hey Jude", Artist: "The Beatles", Isrc: "GBAYE0601477"},
+		{Title: "Bohemian Rhapsody", Artist: "Queen"},
+		{Title: "Blinding Lights", Artist: "The Weeknd", Isrc: "USUM71921132"},
+	}
+
+	tests := []struct {
+		name      string
+		candidate *converterv1.CanonicalTrack
+		list      []*converterv1.CanonicalTrack
+		expected  bool
+	}{
+		{
+			name:      "Nil candidate",
+			candidate: nil,
+			list:      existing,
+			expected:  false,
+		},
+		{
+			name:      "Empty existing list",
+			candidate: &converterv1.CanonicalTrack{Title: "Hey Jude", Artist: "The Beatles"},
+			list:      nil,
+			expected:  false,
+		},
+		{
+			name:      "Exact title and artist match",
+			candidate: &converterv1.CanonicalTrack{Title: "Bohemian Rhapsody", Artist: "Queen"},
+			list:      existing,
+			expected:  true,
+		},
+		{
+			name:      "Fuzzy title match with remaster suffix",
+			candidate: &converterv1.CanonicalTrack{Title: "Hey Jude (Remastered 2015)", Artist: "The Beatles"},
+			list:      existing,
+			expected:  true,
+		},
+		{
+			name:      "Exact ISRC match even if titles differ slightly",
+			candidate: &converterv1.CanonicalTrack{Title: "Blinding Lights - Radio Edit", Artist: "The Weeknd", Isrc: "USUM71921132"},
+			list:      existing,
+			expected:  true,
+		},
+		{
+			name:      "Completely different track not in list",
+			candidate: &converterv1.CanonicalTrack{Title: "Hotel California", Artist: "Eagles", Isrc: "USPR37600014"},
+			list:      existing,
+			expected:  false,
+		},
+		{
+			name:      "Matching title but completely different artist",
+			candidate: &converterv1.CanonicalTrack{Title: "Bohemian Rhapsody", Artist: "Panic! At The Disco"},
+			list:      existing,
+			expected:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TrackExistsInList(tt.candidate, tt.list)
+			if got != tt.expected {
+				t.Errorf("TrackExistsInList(%+v) = %v; want %v", tt.candidate, got, tt.expected)
+			}
+		})
 	}
 }

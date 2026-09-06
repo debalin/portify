@@ -514,6 +514,13 @@ export class ConvertPlaylistResponse extends Message<ConvertPlaylistResponse> {
    */
   failedTracks: CanonicalTrack[] = [];
 
+  /**
+   * Number of tracks that were already in the destination playlist and skipped.
+   *
+   * @generated from field: int32 tracks_skipped = 8;
+   */
+  tracksSkipped = 0;
+
   constructor(data?: PartialMessage<ConvertPlaylistResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -529,6 +536,7 @@ export class ConvertPlaylistResponse extends Message<ConvertPlaylistResponse> {
     { no: 5, name: "tracks_converted", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 6, name: "tracks_failed", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 7, name: "failed_tracks", kind: "message", T: CanonicalTrack, repeated: true },
+    { no: 8, name: "tracks_skipped", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ConvertPlaylistResponse {

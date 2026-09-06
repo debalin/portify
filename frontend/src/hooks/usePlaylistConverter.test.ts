@@ -160,4 +160,49 @@ describe('usePlaylistConverter', () => {
       expect(setTokens).not.toHaveBeenCalled()
     })
   })
+
+  it('captures tracksSkipped during stream and sets progress correctly', async () => {
+    vi.mocked(apiClient.convertPlaylist).mockImplementation(function* () {
+      yield {
+        status: 2,
+        message: 'Converting tracks... (3/5, 2 skipped)',
+        tracksConverted: 1,
+        tracksTotal: 5,
+        tracksSkipped: 2
+      }
+      yield {
+        status: 3,
+        message: 'Successfully converted. 1 added, 2 already in playlist.',
+        tracksConverted: 1,
+        tracksTotal: 5,
+        tracksSkipped: 2,
+        destinationPlaylistUrl: 'https://youtube.com/playlist?list=123',
+        failedTracks: []
+      }
+    } as any)
+
+    const setTokens = vi.fn()
+    const { result } = renderHook(() => usePlaylistConverter({
+      selectedSource: 'spotify',
+      selectedDest: 'youtube',
+      sourcePlaylistId: 'pl-123',
+      destPlaylistId: 'pl-dest-123',
+      tokens: { spotify: 'tok-spotify', youtube: 'tok-yt' },
+      setTokens
+    }))
+
+    await act(async () => {
+      await result.current.handleConvert()
+    })
+
+    await waitFor(() => {
+      expect(result.current.progress).toEqual({
+        status: 3,
+        message: 'Successfully converted. 1 added, 2 already in playlist.',
+        converted: 1,
+        total: 5,
+        skipped: 2
+      })
+    })
+  })
 })

@@ -102,4 +102,7 @@ message ConvertPlaylistResponse {
 
   // List of tracks that couldn't be found/converted.
   repeated CanonicalTrack failed_tracks = 7;
+
+  // Number of tracks that were already in the destination playlist and skipped.
+  int32 tracks_skipped = 8;
 }
