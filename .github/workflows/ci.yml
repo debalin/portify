@@ -122,5 +122,7 @@ jobs:
       - name: Pull and Deploy
         run: |
           cd ~/portify
-          git pull origin master
+          git fetch origin master
+          git checkout master
+          git reset --hard origin/master
           docker compose up --build -d
