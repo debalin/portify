@@ -71,8 +71,8 @@ describe('App', () => {
   it('displays source and destination provider sections', async () => {
     render(<App />)
     await waitFor(() => {
-      expect(screen.getByText(/source/i)).toBeInTheDocument()
-      expect(screen.getByText(/destination/i)).toBeInTheDocument()
+      expect(screen.getByText('Source')).toBeInTheDocument()
+      expect(screen.getByText('Destination')).toBeInTheDocument()
     })
   })
 
@@ -190,6 +190,36 @@ describe('App', () => {
     })
     
     window.alert = originalAlert
+  })
+
+  it('navigates to Privacy Policy and back to Converter via footer', async () => {
+    render(<App />)
+
+    const privacyBtn = screen.getByRole('button', { name: /privacy policy/i })
+    fireEvent.click(privacyBtn)
+
+    expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument()
+
+    const backBtn = screen.getByRole('button', { name: /back to converter/i })
+    fireEvent.click(backBtn)
+
+    expect(screen.getByText('Portify')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start conversion/i })).toBeInTheDocument()
+  })
+
+  it('navigates to Terms of Service and back to Converter via footer', async () => {
+    render(<App />)
+
+    const termsBtn = screen.getByRole('button', { name: /terms of service/i })
+    fireEvent.click(termsBtn)
+
+    expect(screen.getByRole('heading', { level: 1, name: /terms of service/i })).toBeInTheDocument()
+
+    const backBtn = screen.getByRole('button', { name: /back to converter/i })
+    fireEvent.click(backBtn)
+
+    expect(screen.getByText('Portify')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start conversion/i })).toBeInTheDocument()
   })
 })
 
