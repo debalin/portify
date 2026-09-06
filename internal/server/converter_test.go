@@ -634,3 +634,68 @@ func TestConvertPlaylist_CreatePlaylistError(t *testing.T) {
 		t.Error("Expected an ERROR status in the stream for create playlist failure")
 	}
 }
+
+func TestConvertPlaylist_DeduplicateExistingTracks(t *testing.T) {
+	registry := domain.NewProviderRegistry()
+	registry.RegisterSource(&mock.MockSourceWithTracks{})
+
+	dest := &mock.MockFullDestination{
+		ExistingTracks: []*converterv1.CanonicalTrack{
+			{Title: "Bohemian Rhapsody", Artist: "Queen"},
+			{Title: "Stairway to Heaven", Artist: "Led Zeppelin"},
+		},
+	}
+	registry.RegisterDestination(dest)
+	registry.RegisterSource(dest) // Register as source so existing tracks can be fetched
+
+	ts, client := setupTestServer(t, registry)
+	defer ts.Close()
+
+	stream, err := client.ConvertPlaylist(context.Background(), connect.NewRequest(&converterv1.ConvertPlaylistRequest{
+		SourceProvider:        "spotify",
+		DestinationProvider:   "youtube",
+		SourcePlaylistId:      "playlist-with-tracks",
+		DestinationPlaylistId: "existing-playlist-id",
+		SourceAuthToken:       "mock-token",
+		DestinationAuthToken:  "mock-token",
+	}))
+	if err != nil {
+		t.Fatalf("Expected no error initializing stream, got: %v", err)
+	}
+
+	var finalResponse *converterv1.ConvertPlaylistResponse
+	for stream.Receive() {
+		msg := stream.Msg()
+		if msg.Status == converterv1.ConvertPlaylistResponse_STATUS_DONE {
+			finalResponse = msg
+		}
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("Stream error: %v", err)
+	}
+
+	if finalResponse == nil {
+		t.Fatal("Expected final STATUS_DONE response, got none")
+	}
+
+	if finalResponse.TracksTotal != 3 {
+		t.Errorf("Expected TracksTotal=3, got %d", finalResponse.TracksTotal)
+	}
+	if finalResponse.TracksConverted != 1 {
+		t.Errorf("Expected TracksConverted=1, got %d", finalResponse.TracksConverted)
+	}
+	if finalResponse.TracksSkipped != 2 {
+		t.Errorf("Expected TracksSkipped=2, got %d", finalResponse.TracksSkipped)
+	}
+	if finalResponse.TracksFailed != 0 {
+		t.Errorf("Expected TracksFailed=0, got %d", finalResponse.TracksFailed)
+	}
+
+	// Verify that destination only received the single non-existing track
+	if len(dest.AddedTracks) != 1 {
+		t.Fatalf("Expected exactly 1 track added to destination, got %d: %v", len(dest.AddedTracks), dest.AddedTracks)
+	}
+	if dest.AddedTracks[0] != "mock-video-Hotel California" {
+		t.Errorf("Expected 'mock-video-Hotel California' added, got '%s'", dest.AddedTracks[0])
+	}
+}

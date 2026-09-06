@@ -19,7 +19,7 @@ export function usePlaylistConverter({
   setTokens
 }: UsePlaylistConverterProps) {
   const [isConverting, setIsConverting] = useState(false)
-  const [progress, setProgress] = useState<{ status: number; message: string; converted: number; total: number } | null>(null)
+  const [progress, setProgress] = useState<{ status: number; message: string; converted: number; total: number; skipped?: number } | null>(null)
   const [result, setResult] = useState<{ success: boolean; message: string; url?: string; failedTracks?: any[] } | null>(null)
 
   const handleConvert = async () => {
@@ -47,7 +47,8 @@ export function usePlaylistConverter({
           status: res.status,
           message: res.message,
           converted: res.tracksConverted,
-          total: res.tracksTotal
+          total: res.tracksTotal,
+          skipped: res.tracksSkipped
         })
 
         // STATUS_DONE = 3

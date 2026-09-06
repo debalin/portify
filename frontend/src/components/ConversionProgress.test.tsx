@@ -20,4 +20,10 @@ describe('ConversionProgress', () => {
     expect(screen.getByText('Converting tracks...')).toBeInTheDocument()
     expect(screen.getByText('30%')).toBeInTheDocument()
   })
+
+  it('includes skipped tracks in percentage calculation', () => {
+    render(<ConversionProgress progress={{ status: 2, message: 'Converting tracks... (5/10, 2 skipped)', converted: 3, total: 10, skipped: 2 }} />)
+    expect(screen.getByText('Converting tracks... (5/10, 2 skipped)')).toBeInTheDocument()
+    expect(screen.getByText('50%')).toBeInTheDocument()
+  })
 })

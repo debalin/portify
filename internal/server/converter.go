@@ -236,6 +236,7 @@ func (s *ConverterServer) ConvertPlaylist(
 
 	// Step 2: Create or select destination playlist
 	playlistID := req.Msg.DestinationPlaylistId
+	var existingTracks []*converterv1.CanonicalTrack
 	if playlistID == "" {
 		createCtx, createSpan := common.Tracer.Start(ctx, fmt.Sprintf("CreatePlaylist: %s", req.Msg.DestinationProvider))
 		playlistID, err = dest.CreatePlaylist(createCtx, canonicalPlaylist.Name, canonicalPlaylist.Description, req.Msg.DestinationAuthToken)
@@ -255,6 +256,26 @@ func (s *ConverterServer) ConvertPlaylist(
 			attribute.String("playlist_id", playlistID),
 		)
 		createSpan.End()
+	} else {
+		// If appending to an existing playlist, fetch existing tracks to deduplicate and skip matching
+		if destSource, ok := s.registry.GetSource(req.Msg.DestinationProvider); ok {
+			stream.Send(&converterv1.ConvertPlaylistResponse{
+				Status:      converterv1.ConvertPlaylistResponse_STATUS_FETCHING,
+				Message:     "Checking existing tracks in destination playlist to avoid duplicates...",
+				TracksTotal: totalTracks,
+			})
+
+			fetchDestCtx, fetchDestSpan := common.Tracer.Start(ctx, fmt.Sprintf("FetchExistingTracks: %s", req.Msg.DestinationProvider))
+			existingPlaylist, err := destSource.FetchPlaylist(fetchDestCtx, playlistID, req.Msg.DestinationAuthToken)
+			if err != nil {
+				log.Printf("Warning: could not fetch existing tracks for playlist %s: %v", playlistID, err)
+				fetchDestSpan.RecordError(err)
+			} else if existingPlaylist != nil {
+				existingTracks = existingPlaylist.Tracks
+				fetchDestSpan.SetAttributes(attribute.Int("existing_tracks_count", len(existingTracks)))
+			}
+			fetchDestSpan.End()
+		}
 	}
 
 	stream.Send(&converterv1.ConvertPlaylistResponse{
@@ -266,6 +287,7 @@ func (s *ConverterServer) ConvertPlaylist(
 	// Step 3: Match and insert each track
 	converted := int32(0)
 	failed := int32(0)
+	skipped := int32(0)
 	var failedTracks []*converterv1.CanonicalTrack
 
 	loopCtx, loopSpan := common.Tracer.Start(ctx, "Match & Insert Tracks")
@@ -278,6 +300,33 @@ func (s *ConverterServer) ConvertPlaylist(
 			attribute.String("track.artist", track.Artist),
 		)
 
+		// Check if track already exists in destination playlist to save API quota and avoid duplicates
+		if domain.TrackExistsInList(track, existingTracks) {
+			skipped++
+			trackSpan.SetAttributes(attribute.String("track.status", "skipped_duplicate"))
+			trackSpan.End()
+
+			common.TracksProcessedTotal.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("provider", req.Msg.DestinationProvider),
+				attribute.String("status", "skipped"),
+			))
+
+			progressMsg := fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed+skipped, totalTracks)
+			if skipped > 0 {
+				progressMsg = fmt.Sprintf("Converting tracks... (%d/%d, %d skipped)", converted+failed+skipped, totalTracks, skipped)
+			}
+
+			stream.Send(&converterv1.ConvertPlaylistResponse{
+				Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
+				Message:         progressMsg,
+				TracksTotal:     totalTracks,
+				TracksConverted: converted,
+				TracksFailed:    failed,
+				TracksSkipped:   skipped,
+			})
+			continue
+		}
+
 		retryHook := func(event common.RetryEvent) {
 			stream.Send(&converterv1.ConvertPlaylistResponse{
 				Status: converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
@@ -286,6 +335,7 @@ func (s *ConverterServer) ConvertPlaylist(
 				TracksTotal:     totalTracks,
 				TracksConverted: converted,
 				TracksFailed:    failed,
+				TracksSkipped:   skipped,
 			})
 		}
 		trackCtx = common.WithRetryHook(trackCtx, retryHook)
@@ -307,12 +357,18 @@ func (s *ConverterServer) ConvertPlaylist(
 				attribute.String("status", "match_failed"),
 			))
 
+			progressMsg := fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed+skipped, totalTracks)
+			if skipped > 0 {
+				progressMsg = fmt.Sprintf("Converting tracks... (%d/%d, %d skipped)", converted+failed+skipped, totalTracks, skipped)
+			}
+
 			stream.Send(&converterv1.ConvertPlaylistResponse{
 				Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
-				Message:         fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed, totalTracks),
+				Message:         progressMsg,
 				TracksTotal:     totalTracks,
 				TracksConverted: converted,
 				TracksFailed:    failed,
+				TracksSkipped:   skipped,
 			})
 			continue
 		}
@@ -339,23 +395,35 @@ func (s *ConverterServer) ConvertPlaylist(
 			attribute.String("status", trackStatus),
 		))
 
+		progressMsg := fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed+skipped, totalTracks)
+		if skipped > 0 {
+			progressMsg = fmt.Sprintf("Converting tracks... (%d/%d, %d skipped)", converted+failed+skipped, totalTracks, skipped)
+		}
+
 		stream.Send(&converterv1.ConvertPlaylistResponse{
 			Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
-			Message:         fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed, totalTracks),
+			Message:         progressMsg,
 			TracksTotal:     totalTracks,
 			TracksConverted: converted,
 			TracksFailed:    failed,
+			TracksSkipped:   skipped,
 		})
 	}
 
 	// Step 4: Done
+	doneMessage := fmt.Sprintf("Successfully converted '%s'.", canonicalPlaylist.Name)
+	if skipped > 0 {
+		doneMessage = fmt.Sprintf("Successfully converted '%s'. %d added, %d already in playlist.", canonicalPlaylist.Name, converted, skipped)
+	}
+
 	stream.Send(&converterv1.ConvertPlaylistResponse{
 		Status:                 converterv1.ConvertPlaylistResponse_STATUS_DONE,
-		Message:                fmt.Sprintf("Successfully converted '%s'.", canonicalPlaylist.Name),
+		Message:                doneMessage,
 		DestinationPlaylistUrl: dest.GetPlaylistURL(playlistID),
 		TracksTotal:            totalTracks,
 		TracksConverted:        converted,
 		TracksFailed:           failed,
+		TracksSkipped:          skipped,
 		FailedTracks:           failedTracks,
 	})
 
