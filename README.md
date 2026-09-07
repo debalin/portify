@@ -135,16 +135,61 @@ PORTIFY_ENV="staging" # Labels all metrics/spans with 'environment' (defaults to
 
 
 
-## ⚠️ YouTube API Quota Information
+## ⚠️ Provider Quotas & Rate Limits
 
-The YouTube Data API v3 enforces a daily budget of **10,000 quota units** per Google Cloud project. Outgoing actions consume this quota at varying rates:
-- **Search (MatchTrack):** 100 units per query
-- **Playlist Insert (AddTrackToPlaylist):** 50 units per track
-- **Like Video (LikeTrack / Sync to Liked Songs):** 50 units per track
+### Shared Developer Account Architecture
+Portify operates on a **centralized developer application model**:
+- The backend instance is configured with a single set of OAuth application developer credentials per provider (`SPOTIFY_ID`/`SPOTIFY_SECRET`, `YOUTUBE_ID`/`YOUTUBE_SECRET`, `TIDAL_ID`/`TIDAL_SECRET`).
+- While individual users authenticate with their personal accounts via OAuth 2.0 to read and write to their own private libraries, **all outgoing API requests route through and are credited against the host server's registered developer credentials**.
+- Consequently, the API quotas and rate limits are **shared across all users and all conversions** running through that Portify deployment.
 
-Converting a single track (Search + Insert/Like) costs a total of **150 units**. Consequently, a single developer key can support ~66 track conversions per day across all users before the quota is exhausted until midnight PST. 
+Below is a detailed breakdown of how quotas and rate limits work for each supported service:
 
-If deploying this in production, developers must request a **Quota Extension** from Google or implement **Search Caching (Issue #26)** to store results database-side and reduce search calls.
+### 1. YouTube Music (YouTube Data API v3)
+* **Budget Model:** Daily points-based quota allocated per Google Cloud project (resets daily at **midnight Pacific Time (PST/PDT)**).
+* **Default Free Allocation:** **10,000 quota units / day** per Google Cloud project.
+* **Quota Cost Per Operation:**
+  * **Search (`youtube.search.list` / track matching):** **100 units** per query.
+  * **Add to Playlist (`youtube.playlistItems.insert`):** **50 units** per track.
+  * **Like Song (`youtube.videos.rate`):** **50 units** per track.
+  * **Inspect Playlist Tracks (`youtube.playlistItems.list`):** **1 unit** per call (up to 50 tracks per page).
+  * **List Playlists (`youtube.playlists.list`):** **1 unit** per call.
+  * **Create Playlist (`youtube.playlists.insert`):** **50 units** (one-time).
+* **Effective Conversion Capacity:** A single track conversion (Search + Insert) requires **150 units**. Under the free 10,000-unit tier, a single developer key can convert **~66 tracks per day across all users** before receiving `403 quotaExceeded`.
+* **Mitigations & Handling in Portify:**
+  * **Deduplication / Smart Resume (Issue #92):** When appending to an existing destination playlist, Portify fetches existing tracks (costing only 1 unit per 50 tracks) and skips already-present songs without making search or insert calls. This allows multi-day conversion runs for large playlists (e.g. 700+ songs) without duplicates or wasted quota.
+  * **Quota Extension:** For multi-user or high-volume usage, developers must apply for a free [YouTube API Quota Extension](https://console.cloud.google.com/) (e.g. requesting 100,000–150,000 units).
+  * **Project Rotation:** For self-hosted instances, rotating between multiple Google Cloud projects (swapping Client ID/Secret) provides an additional 10,000 units per project immediately.
+
+### 2. Spotify (Spotify Web API)
+* **Budget Model:** Rolling-window rate limiting (requests per time window, typically evaluated over ~30-second windows) rather than a hard daily cap.
+* **Tiers & Restrictions:**
+  * **Development Mode:** The default mode for newly created Spotify developer applications. Limited to **up to 25 explicitly allow-listed Spotify user accounts** registered in the Spotify Developer Dashboard.
+  * **Extended Quota Mode:** Requires submitting an application to Spotify to remove the 25-user restriction for open public access.
+* **Rate Limits & Behavior:**
+  * Typically allows **~100–180 requests per 30-second window** per client ID.
+  * When exceeded, Spotify responds with `HTTP 429 Too Many Requests` along with a `Retry-After: <seconds>` response header.
+* **Portify's Handling:** Portify includes an automatic exponential backoff client (`internal/adapters/common/retry_client.go`) that dynamically respects `Retry-After` headers and pauses execution before automatically resuming, preventing dropped tracks.
+* **Effective Conversion Capacity:** Significantly higher throughput than YouTube. A single developer account can easily convert hundreds to thousands of tracks per day, provided calls are paced within Spotify's rolling rate windows.
+
+### 3. Tidal (Tidal Developer API)
+* **Budget Model:** Concurrency and token-bucket request throttling per OAuth Client ID.
+* **Default Allocation:** Standard developer accounts are throttled at approximately **5–10 requests per second (RPS)** (~300 requests per minute).
+* **Rate Limits & Behavior:**
+  * Exceeding burst limits results in an `HTTP 429 Too Many Requests` response.
+  * Each operation (search track, fetch playlist, add track) counts as a standard 1 HTTP request without points-based multipliers.
+* **Portify's Handling:** Handled automatically by the backend retry and rate-limiting wrapper, which buffers requests and retries with jitter if burst limits are momentarily reached.
+* **Effective Conversion Capacity:** High capacity for personal and self-hosted use. Migrating typical playlists of several hundred songs completes smoothly within minutes.
+
+---
+
+### Quota & Rate Limit Comparison Summary
+
+| Service | Rate Limit Model | Default Developer Tier | Cost per Converted Track | Effective Daily Capacity | Over-Limit Response |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **YouTube Music** | Daily Points Budget | 10,000 units / day | ~150 units (100 search + 50 insert) | **~66 tracks / day** | `403 Forbidden` (`quotaExceeded`) |
+| **Spotify** | Rolling Window (30s) | ~100–180 req / 30s (Max 25 users in Dev Mode) | 1–2 API calls | **Thousands of tracks / day** (paced) | `429 Too Many Requests` (`Retry-After`) |
+| **Tidal** | Token Bucket (RPS) | ~5–10 req / sec | 1–2 API calls | **Thousands of tracks / day** (paced) | `429 Too Many Requests` |
 
 ## 🏃 Getting Started
 
