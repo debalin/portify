@@ -158,8 +158,7 @@ Below is a detailed breakdown of how quotas and rate limits work for each suppor
 * **Effective Conversion Capacity:** A single track conversion (Search + Insert) requires **150 units**. Under the free 10,000-unit tier, a single developer key can convert **~66 tracks per day across all users** before receiving `403 quotaExceeded`.
 * **Mitigations & Handling in Portify:**
   * **Deduplication / Smart Resume (Issue #92):** When appending to an existing destination playlist, Portify fetches existing tracks (costing only 1 unit per 50 tracks) and skips already-present songs without making search or insert calls. This allows multi-day conversion runs for large playlists (e.g. 700+ songs) without duplicates or wasted quota.
-  * **Quota Extension:** For multi-user or high-volume usage, developers must apply for a free [YouTube API Quota Extension](https://console.cloud.google.com/) (e.g. requesting 100,000–150,000 units).
-  * **Project Rotation:** For self-hosted instances, rotating between multiple Google Cloud projects (swapping Client ID/Secret) provides an additional 10,000 units per project immediately.
+  * **Quota Extension:** For multi-user or high-volume usage, developers can apply for a free [YouTube API Quota Extension](https://console.cloud.google.com/) (e.g. requesting 100,000–150,000 units) to accommodate production usage.
 
 ### 2. Spotify (Spotify Web API)
 * **Budget Model:** Rolling-window rate limiting (requests per time window, typically evaluated over ~30-second windows) rather than a hard daily cap.
