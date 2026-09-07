@@ -133,6 +133,14 @@ PORTIFY_ENV="staging" # Labels all metrics/spans with 'environment' (defaults to
 * `portify_api_latency_seconds`: High-precision latency histogram of outgoing API requests, configured with custom sub-second bucket views.
 * `portify_api_retries_total`: Total retry attempts triggered by backoff loops, labeled by `provider`, `operation`, `attempt`, and `status_code`.
 
+### 3. Automated Dashboard-as-Code Sync
+The repository contains the complete dashboard definition at [`monitoring/grafana_dashboard.json`](monitoring/grafana_dashboard.json) with pre-built panels for conversion rates, track statuses, API request volumes, and sub-second p95 latencies.
+
+On every push to `master`, GitHub Actions automatically validates the dashboard JSON and synchronizes it directly to Grafana Cloud (`https://debalin.grafana.net/d/portify-telemetry/portify`) via the Grafana API:
+1. In Grafana Cloud, go to **Administration > Users and access > Service accounts** and create a service account with the **Editor** role.
+2. Generate a token (`glsa_...`).
+3. Add the token to your GitHub repository secrets as `GRAFANA_SERVICE_ACCOUNT_TOKEN`.
+
 
 
 ## ⚠️ Provider Quotas & Rate Limits
