@@ -5,6 +5,8 @@ interface PrivacyPolicyProps {
 }
 
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || 'debalin@debalin.dev'
+
   return (
     <div className="legal-container">
       <button className="back-btn" onClick={onBack}>
@@ -112,7 +114,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           </ul>
           <p>
             <strong>Data Deletion:</strong> Because Portify does not store personal data or credentials on any server or database, simply ending your browser session or clicking &quot;Log out&quot; deletes all active access tokens from your device. If you have any inquiries regarding data deletion, you may contact the maintainer at{' '}
-            <a href="mailto:debalin@debalin.dev">debalin@debalin.dev</a>.
+            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
           </p>
         </section>
 
@@ -120,7 +122,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           <h2>6. Contact Information</h2>
           <p>
             If you have questions or concerns about this Privacy Policy or Portify&apos;s privacy practices, please contact us at{' '}
-            <a href="mailto:debalin@debalin.dev">debalin@debalin.dev</a> or open an issue on GitHub at{' '}
+            <a href={`mailto:${contactEmail}`}>{contactEmail}</a> or open an issue on GitHub at{' '}
             <a href="https://github.com/debalin/portify" target="_blank" rel="noopener noreferrer">
               https://github.com/debalin/portify
             </a>.

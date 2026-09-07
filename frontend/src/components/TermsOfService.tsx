@@ -5,6 +5,8 @@ interface TermsOfServiceProps {
 }
 
 export function TermsOfService({ onBack }: TermsOfServiceProps) {
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || 'debalin@debalin.dev'
+
   return (
     <div className="legal-container">
       <button className="back-btn" onClick={onBack}>
@@ -97,7 +99,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <h2>6. Contact</h2>
           <p>
             If you have any questions concerning these Terms of Service, you may contact us at{' '}
-            <a href="mailto:debalin@debalin.dev">debalin@debalin.dev</a>.
+            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
           </p>
         </section>
       </div>

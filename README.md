@@ -136,10 +136,11 @@ PORTIFY_ENV="staging" # Labels all metrics/spans with 'environment' (defaults to
 ### 3. Automated Dashboard-as-Code Sync
 The repository contains the complete dashboard definition at [`monitoring/grafana_dashboard.json`](monitoring/grafana_dashboard.json) with pre-built panels for conversion rates, track statuses, API request volumes, and sub-second p95 latencies.
 
-On every push to `master`, GitHub Actions automatically validates the dashboard JSON and synchronizes it directly to Grafana Cloud (`https://debalin.grafana.net/d/portify-telemetry/portify`) via the Grafana API:
+On every push to `master`, GitHub Actions automatically validates the dashboard JSON and synchronizes it directly to Grafana Cloud via the Grafana API:
 1. In Grafana Cloud, go to **Administration > Users and access > Service accounts** and create a service account with the **Editor** role.
 2. Generate a token (`glsa_...`).
 3. Add the token to your GitHub repository secrets as `GRAFANA_SERVICE_ACCOUNT_TOKEN`.
+4. *(Optional for forks)* By default, the workflow targets `https://debalin.grafana.net`. To sync to your own Grafana Cloud or self-hosted instance, add a GitHub repository variable named `GRAFANA_URL` (e.g. `https://your-org.grafana.net`). If no token is configured, the sync step skips safely.
 
 
 
@@ -233,19 +234,29 @@ This launches the ConnectRPC server on `http://localhost:8080` and the Vite dev 
 
 You can also start them individually with `make dev-backend` or `make dev-frontend`.
 
-### 4. Staging Deployment (Docker + Cloudflare)
+### 4. Running with Docker
+You can run the fullstack containerized application locally with Docker Compose:
 
-We utilize a headless server to host Portify's containerized infrastructure securely on the public internet.
-
-*   **URL:** [https://staging-portify.debalin.dev](https://staging-portify.debalin.dev)
-*   **Infrastructure:** A local Ubuntu server running `docker-compose`. Nginx acts as a reverse proxy serving the compiled React frontend on port 80 and piping all API requests to the isolated Go backend container, completely resolving CORS cross-origin concerns natively.
-*   **Networking:** Instead of exposing local server ports to the web, `cloudflared` runs as a sidecar container, creating a secure Zero Trust tunnel from the internal Docker network out to the public internet, providing fully-managed HTTPS out of the box.
-
-To spin up the staging environment on your host machine:
 ```bash
 docker compose up --build -d
 ```
-*(Ensure your `CLOUDFLARE_TUNNEL_TOKEN` and `FRONTEND_URL` are set inside `.env` first!)*
+This builds and starts:
+- **Go Backend**: Isolated ConnectRPC server listening on `http://localhost:8080`.
+- **React Frontend**: Production build served via Nginx reverse proxy on `http://localhost:80` (proxying all `/converter.v1.*` calls natively).
+
+*No Cloudflare tunnel or external tokens are needed for local Docker runs.*
+
+### 5. Staging Deployment (Docker + Cloudflare)
+For public staging and production hosting, Portify includes a `cloudflared` tunnel container sidecar under the `staging` profile:
+
+*   **URL:** [https://staging-portify.debalin.dev](https://staging-portify.debalin.dev)
+*   **Networking:** `cloudflared` establishes an encrypted Zero Trust tunnel directly from the Docker network to Cloudflare, providing HTTPS without opening router ports.
+
+To spin up with the Cloudflare tunnel:
+```bash
+docker compose --profile staging up --build -d
+```
+*(Requires `CLOUDFLARE_TUNNEL_TOKEN` configured in `.env`).*
 
 ## 🧪 Testing & Quality
 
@@ -268,10 +279,13 @@ docker compose up --build -d
 
 ### CI/CD Pipeline
 
-Every push and pull request to `master` triggers two parallel GitHub Actions jobs:
+Every push and pull request to `master` runs automated GitHub Actions:
 
-1. **Go Backend & Lint** — Sets up Go 1.25, runs `buf lint`, `gofmt` formatting check, `go vet`, and `go test` with coverage.
+1. **Go Backend & Lint** — Sets up Go 1.25, validates Grafana JSON, runs `buf lint`, `gofmt` check, `go vet`, and `go test` with coverage.
 2. **React Frontend & Lint** — Sets up Node.js 20, runs `npm ci`, ESLint, Vitest, and a production build compilation check.
+3. **Fullstack E2E Tests** — End-to-end browser tests via Playwright.
+4. **Sync Grafana Dashboard** — Synchronizes `monitoring/grafana_dashboard.json` via the Grafana HTTP API on `master` push (safely skips in forks if credentials are unset).
+5. **Deploy to Staging** — Deploys to staging via Docker Compose. *Scoped strictly to `debalin/portify` on `master` so forks are never blocked on self-hosted runners.*
 
 ### Pre-Commit Hook
 

@@ -120,7 +120,7 @@ jobs:
     name: Deploy to Staging
     needs: [backend-test, frontend-test, e2e-test]
     runs-on: self-hosted
-    if: github.ref == 'refs/heads/master'
+    if: github.repository == 'debalin/portify' && github.ref == 'refs/heads/master'
     steps:
       - name: Pull and Deploy
         run: |
@@ -128,7 +128,7 @@ jobs:
           git fetch origin master
           git checkout master
           git reset --hard origin/master
-          docker compose up --build -d
+          docker compose --profile staging up --build -d
 
   sync-grafana-dashboard:
     name: Sync Grafana Dashboard
@@ -140,7 +140,7 @@ jobs:
 
       - name: Push Dashboard to Grafana Cloud
         env:
-          GRAFANA_URL: https://debalin.grafana.net
+          GRAFANA_URL: ${{ vars.GRAFANA_URL || 'https://debalin.grafana.net' }}
           GRAFANA_TOKEN: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
         run: |
           if [ -z "$GRAFANA_TOKEN" ]; then
