@@ -35,6 +35,9 @@ jobs:
         test -z "$(gofmt -l .)" || { echo "Code not properly formatted. Run 'make format'"; exit 1; }
         go vet ./...
         
+    - name: Validate Grafana Dashboard JSON
+      run: jq empty monitoring/grafana_dashboard.json
+
     - name: Run Go Unit Tests
       run: go test -v -coverprofile=coverage.out ./...
 
@@ -126,3 +129,38 @@ jobs:
           git checkout master
           git reset --hard origin/master
           docker compose up --build -d
+
+  sync-grafana-dashboard:
+    name: Sync Grafana Dashboard
+    needs: [backend-test, frontend-test, e2e-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Push Dashboard to Grafana Cloud
+        env:
+          GRAFANA_URL: https://debalin.grafana.net
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
+        run: |
+          if [ -z "$GRAFANA_TOKEN" ]; then
+            echo "::warning::GRAFANA_SERVICE_ACCOUNT_TOKEN secret is not configured in repository secrets. Skipping dashboard sync."
+            exit 0
+          fi
+          echo "Syncing monitoring/grafana_dashboard.json to ${GRAFANA_URL}..."
+          PAYLOAD=$(jq '{dashboard: ., overwrite: true, message: "Auto-updated from GitHub Actions"}' monitoring/grafana_dashboard.json)
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GRAFANA_TOKEN}" \
+            "${GRAFANA_URL}/api/dashboards/db" \
+            -d "$PAYLOAD")
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS:")
+          echo "Response: $BODY"
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::Failed to sync dashboard to Grafana. HTTP $HTTP_STATUS: $BODY"
+            exit 1
+          fi
+          echo "Successfully synced dashboard to Grafana!"
+

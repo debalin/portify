@@ -1031,6 +1031,7 @@
     "to": "now"
   },
   "title": "Portify",
+  "uid": "portify-telemetry",
   "variables": [
     {
       "kind": "QueryVariable",
