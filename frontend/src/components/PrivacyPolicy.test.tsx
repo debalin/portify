@@ -27,4 +27,20 @@ describe('PrivacyPolicy', () => {
     fireEvent.click(screen.getByRole('button', { name: /back to converter/i }))
     expect(onBack).toHaveBeenCalled()
   })
+
+  it('renders required sections for Policies III.A.2e, III.A.2g, and III.E.4a-g', () => {
+    render(<PrivacyPolicy onBack={vi.fn()} />)
+
+    // Policy III.A.2e: Sharing disclosure
+    expect(screen.getByText(/4\. How We Use, Process, and Share Your Information/i)).toBeInTheDocument()
+    expect(screen.getByText(/do not sell, rent, trade, license, or share/i)).toBeInTheDocument()
+
+    // Policy III.A.2g: Device storage & cookies
+    expect(screen.getByText(/5\. Device Storage, Cookies, and Browser Technologies/i)).toBeInTheDocument()
+    expect(screen.getByText(/portifyAuthTokens/i)).toBeInTheDocument()
+
+    // Policy III.E.4a-g: Data refresh/deletion schedule
+    expect(screen.getByText(/6\. API Data Storage, Refresh, and Deletion Lifecycle/i)).toBeInTheDocument()
+    expect(screen.getByText(/Zero Persistent Storage \(No Caching\)/i)).toBeInTheDocument()
+  })
 })
