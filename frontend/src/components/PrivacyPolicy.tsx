@@ -15,7 +15,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
       <div className="legal-card">
         <h1 className="legal-title">Privacy Policy</h1>
-        <p className="legal-updated">Last Updated: September 6, 2026</p>
+        <p className="legal-updated">Last Updated: September 12, 2026</p>
 
         <section className="legal-section">
           <h2>1. Overview</h2>
@@ -61,7 +61,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           </p>
           <ul>
             <li>
-              <strong>Playlist Metadata:</strong> Playlist titles, descriptions, and track listings (track title, artist name, and album name) provided by source platforms (e.g., Spotify, Tidal).
+              <strong>Playlist Metadata:</strong> Playlist titles, descriptions, and track listings (track title, artist name, and album name) retrieved from or sent to streaming providers (e.g., YouTube Music, Spotify, Tidal).
             </li>
             <li>
               <strong>OAuth Authorization Tokens:</strong> Ephemeral access tokens obtained directly via standard OAuth 2.0 authorization flows with Google/YouTube, Spotify, and Tidal.
@@ -74,21 +74,71 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
         <section className="legal-section">
           <div className="section-header-icon">
-            <Key className="legal-icon" />
-            <h2>4. Data Storage and Retention</h2>
+            <ShieldCheck className="legal-icon" />
+            <h2>4. How We Use, Process, and Share Your Information (Internal & External Parties)</h2>
           </div>
           <p>
-            <strong>We do not maintain any persistent databases of user data.</strong>
+            In compliance with YouTube API Services Developer Policies (Policy III.A.2e), we explicitly disclose how user information and API data are used, processed, and shared:
           </p>
           <ul>
             <li>
-              OAuth access tokens are stored <strong>strictly on your local device in browser session storage</strong> (<code>sessionStorage</code>). They are never written to disk or stored in any remote database by Portify.
+              <strong>Purpose of Use:</strong> User data and YouTube API data are used <em>exclusively</em> to perform user-requested playlist migrations (reading playlist tracks from a designated source and creating corresponding playlists or adding matching tracks to a designated destination). We do not use API data for any secondary purpose, profiling, advertising, or machine learning training.
             </li>
             <li>
-              Tokens are transmitted securely over encrypted HTTPS connections directly to official streaming service APIs to perform your conversion.
+              <strong>Internal Parties:</strong> Portify is an open-source tool. We do not have internal staff, commercial teams, or support agents who view, inspect, or access user data or API data. No internal databases or storage volumes contain user data.
             </li>
             <li>
-              When you close your browser tab or clear your browser data, all session tokens and temporary state are permanently removed.
+              <strong>External Parties (No Selling or Third-Party Sharing):</strong> We <strong>do not sell, rent, trade, license, or share</strong> user data or YouTube API Data with any third-party advertisers, data brokers, advertising networks, or external analytics vendors.
+            </li>
+            <li>
+              <strong>Authorized Service Providers Only:</strong> Data is transmitted solely over encrypted HTTPS connections to the official endpoints of the music streaming services you have specifically selected and authenticated with (Google/YouTube Data API v3, Spotify Web API, and Tidal API) strictly to execute the requested conversion actions on your behalf.
+            </li>
+          </ul>
+        </section>
+
+        <section className="legal-section">
+          <div className="section-header-icon">
+            <Key className="legal-icon" />
+            <h2>5. Device Storage, Cookies, and Browser Technologies</h2>
+          </div>
+          <p>
+            In compliance with YouTube API Services Developer Policies (Policy III.A.2g), we disclose how information is stored directly on your device:
+          </p>
+          <ul>
+            <li>
+              <strong>Local Browser Storage (<code>sessionStorage</code>):</strong> Portify uses your browser&apos;s client-side <code>sessionStorage</code> directly on your device to maintain your active conversion session. Specifically, we store:
+              <ul>
+                <li><code>portifyAuthTokens</code>: Temporary OAuth 2.0 access tokens required to authorize requests to streaming providers during your active session.</li>
+                <li><code>portifySource</code> &amp; <code>portifyDest</code>: Your selected source and destination provider choices.</li>
+                <li><code>portifyPlaylistId</code> &amp; <code>portifyDestPlaylistId</code>: The identifiers of playlists selected for conversion.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Cookies:</strong> Portify itself does not place tracking cookies, marketing cookies, or third-party web beacons on users&apos; devices or browsers. Third-party authentication providers (such as Google, Spotify, or Tidal) may place or recognize their own authentication cookies on their respective domains when you interact with their OAuth login dialogs, governed by their respective privacy policies.
+            </li>
+            <li>
+              <strong>Storage Control:</strong> <code>sessionStorage</code> is strictly sandboxed to your browser tab. Closing the browser tab or clicking &quot;Log out&quot; automatically and permanently purges all stored tokens and session data from your device.
+            </li>
+          </ul>
+        </section>
+
+        <section className="legal-section">
+          <div className="section-header-icon">
+            <Lock className="legal-icon" />
+            <h2>6. API Data Storage, Refresh, and Deletion Lifecycle</h2>
+          </div>
+          <p>
+            In compliance with YouTube API Services Developer Policies (Policy III.E.4a-g), we disclose our data retention and deletion schedule:
+          </p>
+          <ul>
+            <li>
+              <strong>Zero Persistent Storage (No Caching):</strong> Portify operates on a completely stateless architecture. We <strong>do not store, cache, or archive</strong> YouTube API Data (including track listings, video metadata, or user profile information) on any persistent server database, filesystem, or permanent cache.
+            </li>
+            <li>
+              <strong>Real-Time Ephemeral Processing:</strong> YouTube API data is fetched on-demand into volatile server memory solely during the active conversion stream. As each track is matched and inserted, progress is streamed to the user via Server-Sent Events (SSE). Once the conversion completes, all in-memory track data is immediately released and discarded.
+            </li>
+            <li>
+              <strong>Retention Period:</strong> 0 seconds on server/persistent storage. All client-side session tokens are cleared upon closing the browser session.
             </li>
           </ul>
         </section>
@@ -96,7 +146,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
         <section className="legal-section">
           <div className="section-header-icon">
             <Trash2 className="legal-icon" />
-            <h2>5. Revoking Access & Data Deletion</h2>
+            <h2>7. Revoking Access & Data Deletion</h2>
           </div>
           <p>
             You have full control over Portify&apos;s access to your Google/YouTube account data. You can revoke Portify&apos;s access permissions at any time:
@@ -119,7 +169,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
         </section>
 
         <section className="legal-section">
-          <h2>6. Contact Information</h2>
+          <h2>8. Contact Information</h2>
           <p>
             If you have questions or concerns about this Privacy Policy or Portify&apos;s privacy practices, please contact us at{' '}
             <a href={`mailto:${contactEmail}`}>{contactEmail}</a> or open an issue on GitHub at{' '}
