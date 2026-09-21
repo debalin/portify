@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
+	"strings"
 	"testing"
 	"time"
 )
@@ -411,5 +412,82 @@ func TestStandardClassifier_OtherStatusCodes(t *testing.T) {
 		if retryable != tc.expected {
 			t.Errorf("status %d: expected retryable = %t, got %t", tc.statusCode, tc.expected, retryable)
 		}
+	}
+}
+
+func TestStandardClassifier_QuotaExceededBody(t *testing.T) {
+	quotaBody := `{"error":{"code":403,"message":"The request cannot be completed because you have exceeded your quota.","errors":[{"domain":"youtube.quota","reason":"quotaExceeded"}]}}`
+	resp := &http.Response{
+		StatusCode: http.StatusForbidden,
+		Body:       io.NopCloser(strings.NewReader(quotaBody)),
+	}
+
+	retryable, _ := StandardClassifier(resp, nil)
+	if retryable {
+		t.Errorf("expected quotaExceeded response to be non-retryable")
+	}
+
+	// Verify the body was restored and can still be read by callers
+	readBack, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read restored response body: %v", err)
+	}
+	if string(readBack) != quotaBody {
+		t.Errorf("expected restored body to match original, got: %s", string(readBack))
+	}
+}
+
+func TestGetBackoff_MinimumFloor(t *testing.T) {
+	rt := &RetryRoundTripper{
+		Classifier: StandardClassifier,
+	}
+
+	minBackoff := 250 * time.Millisecond
+	maxBackoff := 2 * time.Second
+
+	for attempt := 0; attempt < 5; attempt++ {
+		for trial := 0; trial < 20; trial++ {
+			backoff := rt.getBackoff(attempt, nil, nil, minBackoff, maxBackoff)
+			if backoff < minBackoff {
+				t.Fatalf("attempt %d, trial %d: backoff %v is less than minBackoff %v", attempt, trial, backoff, minBackoff)
+			}
+			if backoff > maxBackoff {
+				t.Fatalf("attempt %d, trial %d: backoff %v is greater than maxBackoff %v", attempt, trial, backoff, maxBackoff)
+			}
+		}
+	}
+}
+
+func TestIsQuotaExceeded_And_IsRateLimit(t *testing.T) {
+	if !IsQuotaExceeded(ErrDailyQuotaExceeded) {
+		t.Error("expected ErrDailyQuotaExceeded to be detected")
+	}
+	if !IsQuotaExceeded(errors.New("googleapi: Error 403: quotaExceeded")) {
+		t.Error("expected quotaExceeded string to be detected")
+	}
+	if !IsQuotaExceeded(errors.New("dailyLimitExceeded")) {
+		t.Error("expected dailyLimitExceeded string to be detected")
+	}
+	if IsQuotaExceeded(errors.New("not found")) {
+		t.Error("expected ordinary error to not be detected as quota exceeded")
+	}
+	if IsQuotaExceeded(nil) {
+		t.Error("expected nil to not be quota exceeded")
+	}
+
+	if !IsRateLimit(ErrRateLimited) {
+		t.Error("expected ErrRateLimited to be detected")
+	}
+	if !IsRateLimit(errors.New("HTTP 429: Too Many Requests")) {
+		t.Error("expected 429 error to be detected as rate limit")
+	}
+	if !IsRateLimit(errors.New("rateLimitExceeded")) {
+		t.Error("expected rateLimitExceeded error to be detected as rate limit")
+	}
+	if IsRateLimit(errors.New("internal server error")) {
+		t.Error("expected ordinary error to not be detected as rate limit")
+	}
+	if IsRateLimit(nil) {
+		t.Error("expected nil to not be rate limit")
 	}
 }

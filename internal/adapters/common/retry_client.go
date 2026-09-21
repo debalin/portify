@@ -3,12 +3,14 @@ package common
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -16,6 +18,42 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
+
+var (
+	// ErrDailyQuotaExceeded indicates the provider's daily API quota has been exhausted.
+	ErrDailyQuotaExceeded = errors.New("daily API quota exceeded")
+	// ErrRateLimited indicates the provider returned a 429 Too Many Requests or rate limit error.
+	ErrRateLimited = errors.New("rate limit exceeded")
+)
+
+// IsQuotaExceeded checks if an error indicates daily API quota exhaustion.
+func IsQuotaExceeded(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrDailyQuotaExceeded) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "quotaexceeded") ||
+		strings.Contains(msg, "dailylimitexceeded") ||
+		strings.Contains(msg, "quota exceeded")
+}
+
+// IsRateLimit checks if an error indicates a rate limit error (HTTP 429 or rateLimitExceeded).
+func IsRateLimit(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrRateLimited) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "ratelimitexceeded") ||
+		strings.Contains(msg, "userratelimitexceeded") ||
+		strings.Contains(msg, "too many requests") ||
+		strings.Contains(msg, "429")
+}
 
 type retryHookKey struct{}
 
@@ -63,10 +101,27 @@ func GetOperation(ctx context.Context) string {
 type ErrorClassifier func(resp *http.Response, err error) (retryable bool, backoff time.Duration)
 
 // StandardClassifier parses Retry-After headers (in seconds) or applies standard checks.
+// It detects fatal quota exhaustion (e.g. quotaExceeded, dailyLimitExceeded) and marks it non-retryable.
 func StandardClassifier(resp *http.Response, err error) (bool, time.Duration) {
 	if err != nil {
 		return true, 0
 	}
+	if resp == nil {
+		return false, 0
+	}
+
+	// If response is 403 or 429, inspect body for non-retryable quota exhaustion
+	if resp.Body != nil && (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests) {
+		bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 8192))
+		if readErr == nil {
+			resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(bodyBytes), resp.Body))
+			lower := bytes.ToLower(bodyBytes)
+			if bytes.Contains(lower, []byte("quotaexceeded")) || bytes.Contains(lower, []byte("dailylimitexceeded")) {
+				return false, 0
+			}
+		}
+	}
+
 	if resp.StatusCode == http.StatusTooManyRequests {
 		retryAfterStr := resp.Header.Get("Retry-After")
 		if retryAfterStr != "" {
@@ -244,10 +299,10 @@ func (r *RetryRoundTripper) getBackoff(
 		backoff = maxBackoff
 	}
 
-	if backoff <= 0 {
+	if backoff <= minBackoff {
 		return minBackoff
 	}
 
-	jitter := rand.Int63n(int64(backoff))
-	return time.Duration(jitter)
+	jitter := rand.Int63n(int64(backoff - minBackoff))
+	return minBackoff + time.Duration(jitter)
 }

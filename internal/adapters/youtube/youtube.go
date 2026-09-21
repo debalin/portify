@@ -91,19 +91,29 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 		return nil, fmt.Errorf("failed to create YouTube client: %w", err)
 	}
 
-	// Fetch playlist metadata (Name, Description)
-	call := service.Playlists.List([]string{"snippet"}).Id(playlistID).Context(ctx)
-	playlistRes, err := call.Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch playlist metadata: %w", err)
-	}
-	if len(playlistRes.Items) == 0 {
-		return nil, fmt.Errorf("playlist %s not found", playlistID)
+	actualPlaylistID := playlistID
+	var name, description string
+	if playlistID == "LIKED_SONGS" {
+		actualPlaylistID = "LL"
+		name = "Liked Music"
+		description = "Your liked songs on YouTube Music"
+	} else {
+		// Fetch playlist metadata (Name, Description)
+		call := service.Playlists.List([]string{"snippet"}).Id(playlistID).Context(ctx)
+		playlistRes, err := call.Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch playlist metadata: %w", err)
+		}
+		if len(playlistRes.Items) == 0 {
+			return nil, fmt.Errorf("playlist %s not found", playlistID)
+		}
+		name = playlistRes.Items[0].Snippet.Title
+		description = playlistRes.Items[0].Snippet.Description
 	}
 
 	canonical := &converterv1.CanonicalPlaylist{
-		Name:        playlistRes.Items[0].Snippet.Title,
-		Description: playlistRes.Items[0].Snippet.Description,
+		Name:        name,
+		Description: description,
 		Tracks:      make([]*converterv1.CanonicalTrack, 0),
 	}
 
@@ -111,7 +121,7 @@ func (a *Adapter) FetchPlaylist(ctx context.Context, playlistID string, authToke
 	pageToken := ""
 	for {
 		itemsCall := service.PlaylistItems.List([]string{"snippet"}).
-			PlaylistId(playlistID).
+			PlaylistId(actualPlaylistID).
 			MaxResults(50).
 			Context(ctx)
 

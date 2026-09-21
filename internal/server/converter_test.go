@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	converterv1 "github.com/debalin/portify/gen/go/converter/v1"
 	"github.com/debalin/portify/gen/go/converter/v1/converterv1connect"
+	"github.com/debalin/portify/internal/adapters/common"
 	"github.com/debalin/portify/internal/adapters/mock"
 	"github.com/debalin/portify/internal/domain"
 )
@@ -697,5 +699,269 @@ func TestConvertPlaylist_DeduplicateExistingTracks(t *testing.T) {
 	}
 	if dest.AddedTracks[0] != "mock-video-Hotel California" {
 		t.Errorf("Expected 'mock-video-Hotel California' added, got '%s'", dest.AddedTracks[0])
+	}
+}
+
+// --- Mock destination that triggers quota exceeded ---
+type mockQuotaDestination struct {
+	mock.MockDestination
+	matchCalls  int
+	tracksAdded int
+}
+
+func (m *mockQuotaDestination) CreatePlaylist(ctx context.Context, name, description, token string) (string, error) {
+	return "created-quota-playlist", nil
+}
+
+func (m *mockQuotaDestination) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, token string) (string, error) {
+	m.matchCalls++
+	if m.matchCalls == 1 {
+		return "vid-1", nil
+	}
+	return "", common.ErrDailyQuotaExceeded
+}
+
+func (m *mockQuotaDestination) AddTrackToPlaylist(ctx context.Context, playlistID, trackID, token string) error {
+	m.tracksAdded++
+	return nil
+}
+
+func (m *mockQuotaDestination) GetPlaylistURL(playlistID string) string {
+	return "https://youtube.com/playlist?list=" + playlistID
+}
+
+func TestConvertPlaylist_QuotaExceededCircuitBreaker(t *testing.T) {
+	registry := domain.NewProviderRegistry()
+	registry.RegisterSource(&mock.MockSourceWithTracks{}) // 3 tracks: Bohemian Rhapsody, Stairway to Heaven, Hotel California
+
+	dest := &mockQuotaDestination{}
+	registry.RegisterDestination(dest)
+
+	ts, client := setupTestServer(t, registry)
+	defer ts.Close()
+
+	stream, err := client.ConvertPlaylist(context.Background(), connect.NewRequest(&converterv1.ConvertPlaylistRequest{
+		SourceProvider:       "spotify",
+		DestinationProvider:  "youtube",
+		SourcePlaylistId:     "playlist-with-tracks",
+		SourceAuthToken:      "mock-token",
+		DestinationAuthToken: "mock-token",
+	}))
+	if err != nil {
+		t.Fatalf("Expected no error initializing stream, got: %v", err)
+	}
+
+	var finalResponse *converterv1.ConvertPlaylistResponse
+	for stream.Receive() {
+		msg := stream.Msg()
+		if msg.Status == converterv1.ConvertPlaylistResponse_STATUS_DONE {
+			finalResponse = msg
+		}
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("Stream error: %v", err)
+	}
+
+	if finalResponse == nil {
+		t.Fatal("Expected STATUS_DONE response, got none")
+	}
+
+	// 1 converted, 1 failed (due to quota), 3rd track aborted without attempting
+	if finalResponse.TracksConverted != 1 {
+		t.Errorf("Expected TracksConverted=1, got %d", finalResponse.TracksConverted)
+	}
+	if finalResponse.TracksFailed != 1 {
+		t.Errorf("Expected TracksFailed=1, got %d", finalResponse.TracksFailed)
+	}
+	if finalResponse.TracksTotal != 3 {
+		t.Errorf("Expected TracksTotal=3, got %d", finalResponse.TracksTotal)
+	}
+
+	// Verify circuit breaker prevented the 3rd track from being attempted
+	if dest.matchCalls != 2 {
+		t.Errorf("Expected exactly 2 MatchTrack calls before circuit breaker tripped, got %d", dest.matchCalls)
+	}
+
+	// Verify informative message mentioning daily quota and midnight reset
+	if !strings.Contains(finalResponse.Message, "daily API quota exceeded") {
+		t.Errorf("Expected message to mention 'daily API quota exceeded', got: %s", finalResponse.Message)
+	}
+	if !strings.Contains(finalResponse.Message, "midnight PST") {
+		t.Errorf("Expected message to mention 'midnight PST', got: %s", finalResponse.Message)
+	}
+
+	// Verify destination playlist URL is returned so user can view partial progress
+	if finalResponse.DestinationPlaylistUrl != "https://youtube.com/playlist?list=created-quota-playlist" {
+		t.Errorf("Expected destination playlist URL, got: %s", finalResponse.DestinationPlaylistUrl)
+	}
+}
+
+// --- Mock source with 5 tracks ---
+type mockFiveTrackSource struct {
+	mock.MockSource
+}
+
+func (s *mockFiveTrackSource) FetchPlaylist(ctx context.Context, playlistID, token string) (*converterv1.CanonicalPlaylist, error) {
+	return &converterv1.CanonicalPlaylist{
+		Id:   playlistID,
+		Name: "Five Track Playlist",
+		Tracks: []*converterv1.CanonicalTrack{
+			{Title: "Track 1", Artist: "Artist 1"},
+			{Title: "Track 2", Artist: "Artist 2"},
+			{Title: "Track 3", Artist: "Artist 3"},
+			{Title: "Track 4", Artist: "Artist 4"},
+			{Title: "Track 5", Artist: "Artist 5"},
+		},
+	}, nil
+}
+
+// --- Mock destination that triggers consecutive rate limits ---
+type mockRateLimitDestination struct {
+	mock.MockDestination
+	matchCalls int
+}
+
+func (m *mockRateLimitDestination) CreatePlaylist(ctx context.Context, name, description, token string) (string, error) {
+	return "created-rl-playlist", nil
+}
+
+func (m *mockRateLimitDestination) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, token string) (string, error) {
+	m.matchCalls++
+	return "", fmt.Errorf("HTTP 429: Too Many Requests")
+}
+
+func (m *mockRateLimitDestination) GetPlaylistURL(playlistID string) string {
+	return "https://youtube.com/playlist?list=" + playlistID
+}
+
+func TestConvertPlaylist_RateLimitCircuitBreaker(t *testing.T) {
+	registry := domain.NewProviderRegistry()
+	registry.RegisterSource(&mockFiveTrackSource{})
+
+	dest := &mockRateLimitDestination{}
+	registry.RegisterDestination(dest)
+
+	ts, client := setupTestServer(t, registry)
+	defer ts.Close()
+
+	stream, err := client.ConvertPlaylist(context.Background(), connect.NewRequest(&converterv1.ConvertPlaylistRequest{
+		SourceProvider:       "spotify",
+		DestinationProvider:  "youtube",
+		SourcePlaylistId:     "five-track-playlist",
+		SourceAuthToken:      "mock-token",
+		DestinationAuthToken: "mock-token",
+	}))
+	if err != nil {
+		t.Fatalf("Expected no error initializing stream, got: %v", err)
+	}
+
+	var finalResponse *converterv1.ConvertPlaylistResponse
+	for stream.Receive() {
+		msg := stream.Msg()
+		if msg.Status == converterv1.ConvertPlaylistResponse_STATUS_DONE {
+			finalResponse = msg
+		}
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("Stream error: %v", err)
+	}
+
+	if finalResponse == nil {
+		t.Fatal("Expected STATUS_DONE response, got none")
+	}
+
+	// Verify circuit breaker tripped after exactly 3 consecutive rate limits
+	if dest.matchCalls != 3 {
+		t.Errorf("Expected exactly 3 MatchTrack calls before rate limit circuit breaker tripped, got %d", dest.matchCalls)
+	}
+	if finalResponse.TracksConverted != 0 {
+		t.Errorf("Expected TracksConverted=0, got %d", finalResponse.TracksConverted)
+	}
+	if finalResponse.TracksFailed != 3 {
+		t.Errorf("Expected TracksFailed=3, got %d", finalResponse.TracksFailed)
+	}
+
+	// Verify message mentions rate limit reached
+	if !strings.Contains(finalResponse.Message, "rate limit reached") {
+		t.Errorf("Expected message to mention 'rate limit reached', got: %s", finalResponse.Message)
+	}
+}
+
+// --- Mock destination that has a transient rate limit on track 1, then succeeds ---
+type mockTransientRateLimitDestination struct {
+	mock.MockDestination
+	matchCalls  int
+	tracksAdded int
+}
+
+func (m *mockTransientRateLimitDestination) CreatePlaylist(ctx context.Context, name, description, token string) (string, error) {
+	return "created-transient-playlist", nil
+}
+
+func (m *mockTransientRateLimitDestination) MatchTrack(ctx context.Context, track *converterv1.CanonicalTrack, token string) (string, error) {
+	m.matchCalls++
+	if m.matchCalls == 1 {
+		return "", fmt.Errorf("HTTP 429: Too Many Requests")
+	}
+	return "vid-" + track.Title, nil
+}
+
+func (m *mockTransientRateLimitDestination) AddTrackToPlaylist(ctx context.Context, playlistID, trackID, token string) error {
+	m.tracksAdded++
+	return nil
+}
+
+func (m *mockTransientRateLimitDestination) GetPlaylistURL(playlistID string) string {
+	return "https://youtube.com/playlist?list=" + playlistID
+}
+
+func TestConvertPlaylist_TransientRateLimitRecovery(t *testing.T) {
+	registry := domain.NewProviderRegistry()
+	registry.RegisterSource(&mock.MockSourceWithTracks{}) // 3 tracks
+
+	dest := &mockTransientRateLimitDestination{}
+	registry.RegisterDestination(dest)
+
+	ts, client := setupTestServer(t, registry)
+	defer ts.Close()
+
+	stream, err := client.ConvertPlaylist(context.Background(), connect.NewRequest(&converterv1.ConvertPlaylistRequest{
+		SourceProvider:       "spotify",
+		DestinationProvider:  "youtube",
+		SourcePlaylistId:     "playlist-with-tracks",
+		SourceAuthToken:      "mock-token",
+		DestinationAuthToken: "mock-token",
+	}))
+	if err != nil {
+		t.Fatalf("Expected no error initializing stream, got: %v", err)
+	}
+
+	var finalResponse *converterv1.ConvertPlaylistResponse
+	for stream.Receive() {
+		msg := stream.Msg()
+		if msg.Status == converterv1.ConvertPlaylistResponse_STATUS_DONE {
+			finalResponse = msg
+		}
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("Stream error: %v", err)
+	}
+
+	if finalResponse == nil {
+		t.Fatal("Expected STATUS_DONE response, got none")
+	}
+
+	// All 3 tracks should have been attempted
+	if dest.matchCalls != 3 {
+		t.Errorf("Expected all 3 tracks attempted, got %d match calls", dest.matchCalls)
+	}
+	if finalResponse.TracksConverted != 2 {
+		t.Errorf("Expected TracksConverted=2, got %d", finalResponse.TracksConverted)
+	}
+	if finalResponse.TracksFailed != 1 {
+		t.Errorf("Expected TracksFailed=1, got %d", finalResponse.TracksFailed)
+	}
+	if !strings.Contains(finalResponse.Message, "Successfully converted") {
+		t.Errorf("Expected 'Successfully converted' message, got: %s", finalResponse.Message)
 	}
 }
