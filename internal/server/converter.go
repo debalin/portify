@@ -290,6 +290,10 @@ func (s *ConverterServer) ConvertPlaylist(
 	skipped := int32(0)
 	var failedTracks []*converterv1.CanonicalTrack
 
+	consecutiveRateLimits := 0
+	const maxConsecutiveRateLimits = 3
+	var abortReason string
+
 	loopCtx, loopSpan := common.Tracer.Start(ctx, "Match & Insert Tracks")
 	defer loopSpan.End()
 
@@ -328,10 +332,14 @@ func (s *ConverterServer) ConvertPlaylist(
 		}
 
 		retryHook := func(event common.RetryEvent) {
+			delay := event.Delay.Round(time.Second)
+			if delay < time.Second {
+				delay = time.Second
+			}
 			stream.Send(&converterv1.ConvertPlaylistResponse{
 				Status: converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
 				Message: fmt.Sprintf("[%s] Rate limited (HTTP %d). Retrying in %v (attempt %d)...",
-					strings.ToUpper(event.ProviderID), event.StatusCode, event.Delay.Round(time.Second), event.Attempt),
+					strings.ToUpper(event.ProviderID), event.StatusCode, delay, event.Attempt),
 				TracksTotal:     totalTracks,
 				TracksConverted: converted,
 				TracksFailed:    failed,
@@ -356,6 +364,24 @@ func (s *ConverterServer) ConvertPlaylist(
 				attribute.String("provider", req.Msg.DestinationProvider),
 				attribute.String("status", "match_failed"),
 			))
+
+			if err != nil {
+				if common.IsQuotaExceeded(err) {
+					abortReason = "quota"
+					break
+				}
+				if common.IsRateLimit(err) {
+					consecutiveRateLimits++
+					if consecutiveRateLimits >= maxConsecutiveRateLimits {
+						abortReason = "rate_limit"
+						break
+					}
+				} else {
+					consecutiveRateLimits = 0
+				}
+			} else {
+				consecutiveRateLimits = 0
+			}
 
 			progressMsg := fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed+skipped, totalTracks)
 			if skipped > 0 {
@@ -384,9 +410,46 @@ func (s *ConverterServer) ConvertPlaylist(
 			trackStatus = "insert_failed"
 			trackSpan.RecordError(err)
 			trackSpan.SetStatus(codes.Error, err.Error())
-		} else {
-			converted++
+			trackSpan.SetAttributes(attribute.String("track.status", trackStatus))
+			trackSpan.End()
+
+			common.TracksProcessedTotal.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("provider", req.Msg.DestinationProvider),
+				attribute.String("status", trackStatus),
+			))
+
+			if common.IsQuotaExceeded(err) {
+				abortReason = "quota"
+				break
+			}
+			if common.IsRateLimit(err) {
+				consecutiveRateLimits++
+				if consecutiveRateLimits >= maxConsecutiveRateLimits {
+					abortReason = "rate_limit"
+					break
+				}
+			} else {
+				consecutiveRateLimits = 0
+			}
+
+			progressMsg := fmt.Sprintf("Converting tracks... (%d/%d)", converted+failed+skipped, totalTracks)
+			if skipped > 0 {
+				progressMsg = fmt.Sprintf("Converting tracks... (%d/%d, %d skipped)", converted+failed+skipped, totalTracks, skipped)
+			}
+
+			stream.Send(&converterv1.ConvertPlaylistResponse{
+				Status:          converterv1.ConvertPlaylistResponse_STATUS_CONVERTING,
+				Message:         progressMsg,
+				TracksTotal:     totalTracks,
+				TracksConverted: converted,
+				TracksFailed:    failed,
+				TracksSkipped:   skipped,
+			})
+			continue
 		}
+
+		converted++
+		consecutiveRateLimits = 0
 		trackSpan.SetAttributes(attribute.String("track.status", trackStatus))
 		trackSpan.End()
 
@@ -410,10 +473,29 @@ func (s *ConverterServer) ConvertPlaylist(
 		})
 	}
 
-	// Step 4: Done
-	doneMessage := fmt.Sprintf("Successfully converted '%s'.", canonicalPlaylist.Name)
-	if skipped > 0 {
-		doneMessage = fmt.Sprintf("Successfully converted '%s'. %d added, %d already in playlist.", canonicalPlaylist.Name, converted, skipped)
+	// Step 4: Completion (full success or graceful partial pause)
+	var doneMessage string
+	destName := dest.Info().Name
+
+	if abortReason == "quota" {
+		conversionStatus = "partial"
+		span.SetAttributes(attribute.String("conversion.abort_reason", "quota_exceeded"))
+		doneMessage = fmt.Sprintf(
+			"Conversion paused: %s daily API quota exceeded. %d tracks added, %d skipped. Quota resets at midnight PST. You can resume tomorrow; already converted tracks will be skipped.",
+			destName, converted, skipped,
+		)
+	} else if abortReason == "rate_limit" {
+		conversionStatus = "partial"
+		span.SetAttributes(attribute.String("conversion.abort_reason", "rate_limited"))
+		doneMessage = fmt.Sprintf(
+			"Conversion paused: %s rate limit reached. %d tracks added, %d skipped. Please wait a few minutes before resuming; already converted tracks will be skipped.",
+			destName, converted, skipped,
+		)
+	} else {
+		doneMessage = fmt.Sprintf("Successfully converted '%s'.", canonicalPlaylist.Name)
+		if skipped > 0 {
+			doneMessage = fmt.Sprintf("Successfully converted '%s'. %d added, %d already in playlist.", canonicalPlaylist.Name, converted, skipped)
+		}
 	}
 
 	stream.Send(&converterv1.ConvertPlaylistResponse{

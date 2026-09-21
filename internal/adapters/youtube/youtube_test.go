@@ -575,3 +575,40 @@ func TestAddTrackToPlaylist_LikeSongs(t *testing.T) {
 		t.Fatal("Expected error when rating fails, got nil")
 	}
 }
+
+func TestFetchPlaylist_LikedSongs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/youtube/v3/playlistItems") && r.Method == "GET" {
+			playlistID := r.URL.Query().Get("playlistId")
+			if playlistID != "LL" {
+				t.Errorf("Expected playlistId 'LL', got '%s'", playlistID)
+			}
+			json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{"snippet": map[string]any{"title": "Liked Track 1", "videoOwnerChannelTitle": "Artist 1"}},
+					{"snippet": map[string]any{"title": "Liked Track 2", "videoOwnerChannelTitle": "Artist 2"}},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := newTestAdapter(server.URL)
+	playlist, err := a.FetchPlaylist(context.Background(), "LIKED_SONGS", "token")
+	if err != nil {
+		t.Fatalf("FetchPlaylist for LIKED_SONGS returned error: %v", err)
+	}
+
+	if playlist.Name != "Liked Music" {
+		t.Errorf("Expected Name 'Liked Music', got '%s'", playlist.Name)
+	}
+	if len(playlist.Tracks) != 2 {
+		t.Fatalf("Expected 2 tracks, got %d", len(playlist.Tracks))
+	}
+	if playlist.Tracks[0].Title != "Liked Track 1" {
+		t.Errorf("Expected 'Liked Track 1', got '%s'", playlist.Tracks[0].Title)
+	}
+}
